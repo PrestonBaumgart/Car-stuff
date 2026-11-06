@@ -2,7 +2,7 @@
 
 **Your car, fully decoded.** Enter your VIN and Vinsight shows a 3D holographic map of your exact vehicle. It tells you when service is due, which oil and tire pressure your car takes, which jobs you can do yourself, which problems are common for your model, and where to buy the cheapest part that fits.
 
-**Status:** the landing page is built. It includes a live demo that decodes VINs and pulls recalls and complaints from NHTSA. The full app is in planning. See [PLAN.md](PLAN.md) for the landing page plan.
+**Status:** the landing page and the first version of the app ("My garage") are built. Add cars by VIN, log mileage and service, see what's overdue, and check recalls and common problems. Paid data sources (maintenance schedules, part prices) and accounts come next. See [PLAN.md](PLAN.md) for the landing page plan.
 
 ## Quick start
 
@@ -15,12 +15,30 @@ To see the page, open `index.html` in a browser. There's no build step and nothi
 
 Live VIN lookups need the page to be served over the web, not opened as a local file. You can use GitHub Pages (below) or any static server, such as `npx serve .`.
 
+### The app (`web/`)
+
+The app is Next.js with TypeScript. It needs [Node.js](https://nodejs.org) 20 or newer.
+
+```bash
+cd web
+npm install
+npm run dev     # http://localhost:3000
+npm test        # maintenance and VIN logic
+npm run build   # static export to web/out
+```
+
+For now the garage is saved in the browser (`localStorage`), so there's no account or backend yet. All storage goes through `web/lib/garage-store.ts`, which is the one file to swap for Supabase when sign-in arrives.
+
 ## What's in the repo
 
 ```
 .
 ├── index.html                  Landing page: 3D car, VIN decoder, health, DIY, known issues
 ├── src/lib/nhtsa.js            NHTSA client: VIN check digit, decode, recalls, complaints
+├── web/                        The app (Next.js): My garage, service queue, odometer, specs, recalls
+│   ├── app/                    Pages: garage list (/) and car detail (/car/?vin=)
+│   ├── components/             Service queue, odometer, specs, known issues, health ring
+│   └── lib/                    Maintenance schedule logic, garage storage, typed NHTSA client
 ├── .github/workflows/pages.yml Publishes the site to GitHub Pages on push to main
 ├── PLAN.md                     Landing page plan
 ├── README.md
@@ -77,9 +95,11 @@ Some limits to keep in mind:
 ## Roadmap
 
 - [x] Landing page with live VIN decoding, recalls and complaints
-- [ ] App scaffold, sign-in and "My garage"
-- [ ] Maintenance schedule and service queue
-- [ ] Odometer log and reminders, by miles or months, whichever comes first
+- [x] App scaffold and "My garage" (saved in the browser)
+- [x] Service queue with a general schedule, by miles or months, whichever comes first
+- [x] Odometer log, service history, owner-entered specs, recalls and common problems
+- [ ] Sign-in and cloud sync (Supabase)
+- [ ] OEM maintenance schedule per VIN (CarMD or CarsXE, behind a server route)
 - [ ] Parts search with fitment checks and ranking
 - [ ] DIY job library
 - [ ] 3D parts bay with body-type models: sedan, SUV, truck and coupe
@@ -98,7 +118,9 @@ Some limits to keep in mind:
 
 2. In the repo on GitHub, open **Settings → Pages** and set **Source** to **GitHub Actions**.
 
-After that, every push to `main` republishes the site.
+After that, every push to `main` tests and builds the app, then republishes the site. The landing page is at `/Car-stuff/` and the app at `/Car-stuff/app/`.
+
+Static hosting can't keep paid API keys secret. When CarMD or eBay are added, move the app to a host with server routes, such as Vercel, and drop `output: "export"` from `web/next.config.mjs`.
 
 ## Disclaimer
 
