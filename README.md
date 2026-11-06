@@ -7,7 +7,7 @@
 ## Quick start
 
 ```bash
-git clone git@github.com:PrestonBaumgart/Car-stuff.git
+git clone https://github.com/PrestonBaumgart/Car-stuff.git
 cd Car-stuff
 ```
 
