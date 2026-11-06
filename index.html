@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vinsight</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Vinsight decodes your VIN and turns it into a living 3D map of your car: service schedule, fluids, tire pressure, recalls, common problems and the cheapest parts.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;800;900&family=Chakra+Petch:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one deep garage-at-night world. A full-bleed hologram bay up top, then stacked HUD "bays" for each job the app does. Single deliberate dark theme. */
+:root {
+  color-scheme: dark;
+  --bay: #070b14;        /* garage floor at night */
+  --bay-2: #0d1424;      /* panel surface */
+  --steel: #8a9bb8;      /* muted labels, blue-biased neutral */
+  --ink: #e8eefb;        /* main text */
+  --holo: #3de0ff;       /* hologram cyan */
+  --amber: #ffb02e;      /* dash warning lamp */
+  --coral: #ff4d6d;      /* critical / recall */
+  --ok: #5dffa8;         /* in spec */
+  --line: rgba(61,224,255,.22);
+  --f-display: "Big Shoulders Display", "Arial Narrow", Impact, sans-serif;
+  --f-hud: "Chakra Petch", "Consolas", ui-monospace, monospace;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+* { box-sizing: border-box; }
+html { background: var(--bay); }
+body {
+  background: var(--bay);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--bay); }
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+h1, h2, h3 { text-wrap: balance; margin: 0; }
+a { color: var(--holo); }
+:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+.hud { font-family: var(--f-hud); text-transform: uppercase; letter-spacing: .14em; font-size: 12px; color: var(--steel); }
+
+/* ---------- top bar ---------- */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: linear-gradient(var(--bay), rgba(7,11,20,.7)); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 12px; }
+.brand { font-family: var(--f-display); font-weight: 900; font-size: 26px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink); text-decoration: none; display: flex; gap: 10px; align-items: center; }
+.brand i { width: 14px; height: 14px; border: 2px solid var(--holo); transform: rotate(45deg); box-shadow: 0 0 12px var(--holo); display: inline-block; }
+.top nav { display: flex; gap: 20px; flex-wrap: wrap; }
+.top nav a { color: var(--steel); text-decoration: none; }
+.top nav a:hover { color: var(--holo); }
+@media (max-width: 720px) { .top nav { display: none; } }
+
+/* ---------- hero bay ---------- */
+.hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(ellipse 60% 50% at 62% 58%, rgba(61,224,255,.16), transparent 70%),
+    radial-gradient(ellipse 40% 40% at 10% 10%, rgba(255,77,109,.14), transparent 70%),
+    radial-gradient(ellipse 30% 30% at 95% 0%, rgba(255,176,46,.12), transparent 70%),
+    var(--bay); }
+.hero::after { content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0 1px, transparent 1px 3px); mix-blend-mode: overlay; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 24px; min-height: min(780px, 86vh); align-items: stretch; padding-block: 28px 20px; }
+.hero-copy { display: flex; flex-direction: column; justify-content: center; gap: 22px; position: relative; z-index: 3; min-width: 0; }
+.kicker { display: flex; gap: 10px; align-items: center; color: var(--amber); }
+.kicker b { width: 8px; height: 8px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 10px var(--amber); animation: blink 1.6s infinite; }
+@keyframes blink { 50% { opacity: .25; } }
+.hero h1 { font-family: var(--f-display); font-weight: 900; text-transform: uppercase; line-height: .84; font-size: clamp(60px, 7.4vw, 124px); letter-spacing: -.01em; }
+.hero h1 .o { display: block; color: transparent; -webkit-text-stroke: 1.5px var(--holo); text-shadow: 0 0 28px rgba(61,224,255,.45); }
+.hero h1 .c { display: block; background: linear-gradient(95deg, var(--amber), var(--coral)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.lede { max-width: 46ch; color: #c3cee6; font-size: 18px; margin: 0; }
+
+.vinbox { border: 1px solid var(--line); background: rgba(13,20,36,.85); padding: 14px; display: grid; gap: 10px; clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 18px 100%, 0 calc(100% - 18px)); }
+.vinbox label { display: flex; justify-content: space-between; gap: 8px; }
+.vinrow { display: flex; gap: 8px; flex-wrap: wrap; }
+#vin { flex: 1 1 240px; min-width: 0; background: #03060c; border: 1px solid var(--line); color: var(--holo); font-family: var(--f-hud); font-size: 20px; letter-spacing: .18em; padding: 12px 14px; text-transform: uppercase; }
+#vin:focus { outline: none; border-color: var(--holo); box-shadow: 0 0 0 3px rgba(61,224,255,.2); }
+.btn { font-family: var(--f-hud); font-weight: 600; text-transform: uppercase; letter-spacing: .14em; font-size: 13px; padding: 12px 18px; border: 1px solid var(--holo); background: var(--holo); color: #021018; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; }
+.btn:hover { box-shadow: 0 0 24px rgba(61,224,255,.6); }
+.btn.ghost { background: transparent; color: var(--holo); }
+.btn.warm { background: var(--amber); border-color: var(--amber); }
+.vinmeta { display: flex; gap: 14px; flex-wrap: wrap; font-family: var(--f-hud); font-size: 12px; color: var(--steel); }
+.vinmeta span[data-s="ok"] { color: var(--ok); }
+.vinmeta span[data-s="bad"] { color: var(--coral); }
+.vinmeta span[data-s="warn"] { color: var(--amber); }
+
+.stage { position: relative; min-height: 460px; min-width: 0; }
+#car3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: pan-y; }
+.corner { position: absolute; width: 34px; height: 34px; border: 2px solid var(--holo); pointer-events: none; opacity: .8; }
+.corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
+.corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
+.corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
+.corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+.stage-hud { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; z-index: 2; }
+.stage-hud .v { color: var(--holo); }
+.hint { position: absolute; left: 14px; bottom: 12px; pointer-events: none; color: var(--holo); z-index: 2; }
+#tip3d { position: absolute; pointer-events: none; z-index: 3; padding: 4px 8px; background: rgba(3,6,12,.9); border: 1px solid var(--holo); color: var(--holo); font-family: var(--f-hud); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; transform: translate(12px, -50%); }
+.nogl { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--steel); padding: 24px; }
+
+@media (max-width: 900px) {
+  .hero-grid { grid-template-columns: 1fr; min-height: 0; }
+  .stage { min-height: 380px; }
+  .stage-hud > span:last-child { display: none; }
+}
+
+/* ---------- ticker ---------- */
+.ticker { border-bottom: 1px solid var(--line); background: #050811; overflow: hidden; white-space: nowrap; }
+.ticker .track { display: inline-flex; gap: 40px; padding-block: 10px; animation: tick 48s linear infinite; }
+.ticker span { font-family: var(--f-hud); text-transform: uppercase; letter-spacing: .16em; font-size: 13px; color: var(--steel); }
+.ticker span b { color: var(--ok); font-weight: 600; }
+.ticker span b.w { color: var(--amber); }
+.ticker span b.r { color: var(--coral); }
+@keyframes tick { to { transform: translateX(-50%); } }
+
+/* ---------- bays ---------- */
+section.bay { padding-block: 72px; border-bottom: 1px solid var(--line); position: relative; }
+.bay-head { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 24px; align-items: end; margin-bottom: 36px; }
+.bay-num { font-family: var(--f-display); font-weight: 900; font-size: 110px; line-height: .8; color: transparent; -webkit-text-stroke: 1px var(--line); grid-row: span 2; }
+.bay h2 { font-family: var(--f-display); font-weight: 800; text-transform: uppercase; font-size: clamp(40px, 5.4vw, 78px); line-height: .92; }
+.bay h2 em { font-style: normal; color: var(--amber); }
+.bay-sub { color: #b6c2db; max-width: 62ch; margin: 0; }
+@media (max-width: 640px) { .bay-head { grid-template-columns: 1fr; } .bay-num { font-size: 72px; grid-row: auto; } }
+
+/* parts explorer */
+.explorer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 20px; }
+@media (max-width: 860px) { .explorer { grid-template-columns: 1fr; } }
+.partlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; align-content: start; }
+.partbtn { text-align: left; background: var(--bay-2); border: 1px solid var(--line); color: var(--ink); padding: 10px 12px; cursor: pointer; display: grid; gap: 2px; font-family: var(--f-body); font-size: 14px; }
+.partbtn small { font-family: var(--f-hud); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--steel); }
+.partbtn:hover { border-color: var(--holo); }
+.partbtn[aria-pressed="true"] { border-color: var(--amber); background: rgba(255,176,46,.1); }
+.card { background: linear-gradient(160deg, rgba(61,224,255,.07), transparent 40%), var(--bay-2); border: 1px solid var(--line); padding: 22px; min-width: 0; }
+.partcard h3 { font-family: var(--f-display); font-weight: 800; text-transform: uppercase; font-size: 44px; line-height: .95; color: var(--holo); }
+.partcard .sys { color: var(--amber); margin-bottom: 6px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 18px 0; }
+.stat { border-top: 2px solid var(--line); padding-top: 8px; min-width: 0; }
+.stat .val { font-family: var(--f-display); font-weight: 800; font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.stat .val.save { color: var(--ok); }
+@media (max-width: 480px) { .stats { grid-template-columns: 1fr 1fr; } }
+.wrench { display: inline-flex; gap: 3px; vertical-align: middle; }
+.wrench i { width: 14px; height: 6px; background: var(--line); transform: skewX(-20deg); }
+.wrench i.on { background: var(--amber); box-shadow: 0 0 6px var(--amber); }
+.partcard p { margin: 0 0 14px; color: #c3cee6; max-width: 60ch; }
+.buy { display: flex; flex-wrap: wrap; gap: 8px; }
+.fine { font-size: 13px; color: var(--steel); margin-top: 12px; }
+
+/* health dash */
+.dash { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 14px; }
+.dash > * { min-width: 0; }
+.span4 { grid-column: span 4; } .span8 { grid-column: span 8; } .span6 { grid-column: span 6; } .span12 { grid-column: span 12; }
+@media (max-width: 860px) { .span4, .span8, .span6 { grid-column: span 12; } }
+.gauge { display: flex; gap: 18px; align-items: center; }
+.gauge svg { flex: 0 0 auto; }
+.big { font-family: var(--f-display); font-weight: 900; font-size: 64px; line-height: .9; font-variant-numeric: tabular-nums; }
+.svc { list-style: none; padding: 0; margin: 0; display: grid; gap: 0; }
+.svc li { display: grid; grid-template-columns: 10px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 12px 0; border-bottom: 1px dashed var(--line); }
+.svc li:last-child { border-bottom: 0; }
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot.r { background: var(--coral); box-shadow: 0 0 10px var(--coral); }
+.dot.w { background: var(--amber); box-shadow: 0 0 10px var(--amber); }
+.dot.g { background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+.svc .due { font-family: var(--f-hud); font-size: 13px; color: var(--steel); text-align: right; font-variant-numeric: tabular-nums; }
+.tires { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: center; justify-items: center; }
+.tire { font-family: var(--f-display); font-weight: 800; font-size: 34px; font-variant-numeric: tabular-nums; text-align: center; line-height: 1; }
+.tire small { display: block; font-family: var(--f-hud); font-size: 11px; letter-spacing: .12em; color: var(--steel); font-weight: 400; }
+.tire.low { color: var(--amber); }
+.fluid { display: grid; gap: 10px; }
+.fluid div { display: flex; justify-content: space-between; gap: 12px; border-bottom: 1px dashed var(--line); padding-bottom: 8px; }
+.fluid b { font-family: var(--f-hud); font-weight: 600; color: var(--holo); text-align: right; }
+.sample-tag { display: inline-block; font-family: var(--f-hud); font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #021018; background: var(--amber); padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
+
+/* DIY savings */
+.diy-table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+table { border-collapse: collapse; width: 100%; min-width: 640px; }
+th, td { text-align: left; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--f-hud); font-weight: 600; text-transform: uppercase; letter-spacing: .12em; font-size: 12px; color: var(--steel); background: #050811; }
+td.num { font-variant-numeric: tabular-nums; font-family: var(--f-hud); }
+td.save { color: var(--ok); font-weight: 600; }
+tr:hover td { background: rgba(61,224,255,.04); }
+
+/* problems */
+.probs { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 860px) { .probs { grid-template-columns: 1fr; } }
+.bar { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr) 44px; gap: 10px; align-items: center; margin-bottom: 10px; font-size: 14px; }
+.bar .t { height: 10px; background: rgba(255,255,255,.05); }
+.bar .t i { display: block; height: 100%; background: linear-gradient(90deg, var(--coral), var(--amber)); }
+.bar .n { font-family: var(--f-hud); text-align: right; font-variant-numeric: tabular-nums; }
+.recall { border-left: 3px solid var(--coral); padding: 8px 12px; margin-bottom: 10px; background: rgba(255,77,109,.06); }
+.recall .hud { color: var(--coral); }
+.recall div:last-child { font-size: 14px; }
+#recallList { max-height: 360px; overflow-y: auto; padding-right: 6px; }
+
+/* stack / github */
+.stack { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.stack .card h3 { font-family: var(--f-display); font-weight: 800; text-transform: uppercase; font-size: 28px; margin-bottom: 8px; }
+.stack .card p { margin: 0; color: #b6c2db; font-size: 15px; }
+.stack .card .hud { color: var(--holo); display: block; margin-bottom: 6px; }
+pre { background: #03060c; border: 1px solid var(--line); padding: 16px; overflow-x: auto; font-family: var(--f-hud); font-size: 14px; color: var(--holo); margin: 18px 0 0; }
+footer { padding-block: 40px; color: var(--steel); font-size: 14px; }
+footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker .track, .kicker b { animation: none; }
+}
+</style>
+
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top"><i></i>Vinsight</a>
+    <nav class="hud" aria-label="Sections">
+      <a href="#parts">Parts bay</a>
+      <a href="#health">Health</a>
+      <a href="#diy">DIY savings</a>
+      <a href="#problems">Known issues</a>
+      <a href="#build">Build it</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero" aria-label="Decode your car">
+    <div class="wrap hero-grid">
+      <div class="hero-copy">
+        <div class="kicker hud"><b></b>17 characters. One whole car.</div>
+        <h1>Your car<span class="o">fully</span><span class="c">decoded</span></h1>
+        <p class="lede">Type your VIN and Vinsight builds a holographic map of your exact car. It tells you when service is due, which oil and tire pressure it takes, what you can fix yourself, and where the cheapest right-fit part is.</p>
+        <form class="vinbox" id="vinForm" novalidate>
+          <label for="vin" class="hud"><span>Vehicle identification number</span><span id="vinCount">17 / 17</span></label>
+          <div class="vinrow">
+            <input id="vin" name="vin" maxlength="17" autocomplete="off" spellcheck="false" value="1HGCM82633A004352" aria-describedby="vinStatus">
+            <button class="btn" type="submit">Decode</button>
+          </div>
+          <div class="vinmeta" id="vinStatus" aria-live="polite">
+            <span id="vinCheck" data-s="ok">Check digit valid</span>
+            <span id="vinSource">Example vehicle loaded</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="stage" id="stage">
+        <canvas id="car3d" aria-label="Interactive 3D model of the car. Use the parts list below for keyboard access."></canvas>
+        <div class="stage-hud hud"><span>Scan <span class="v" id="hudCar">2003 Honda Accord EX-V6</span></span><span><span class="v" id="hudParts">0</span> parts mapped</span></div>
+        <div class="hint hud">Drag to orbit · Tap a glowing part</div>
+        <div id="tip3d" hidden></div>
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+      </div>
+    </div>
+  </section>
+
+  <div class="ticker" aria-hidden="true"><div class="track" id="ticker"></div></div>
+
+  <section class="bay" id="parts">
+    <div class="wrap">
+      <div class="bay-head">
+        <div class="bay-num">01</div>
+        <h2>Parts bay. <em>Tap it, price it.</em></h2>
+        <p class="bay-sub">Every part on the hologram is tied to your year, make, model and engine. Pick one to see how often it needs attention, how hard it is to do yourself, and where to buy it for the lowest price.</p>
+      </div>
+      <div class="explorer">
+        <div class="partlist" id="partList" role="group" aria-label="Parts"></div>
+        <article class="card partcard" id="partCard" aria-live="polite"></article>
+      </div>
+    </div>
+  </section>
+
+  <section class="bay" id="health">
+    <div class="wrap">
+      <div class="bay-head">
+        <div class="bay-num">02</div>
+        <h2>Health, <em>at a glance.</em></h2>
+        <p class="bay-sub">Log your mileage once a month and Vinsight keeps score. Due items surface before they become breakdowns. The numbers below are an example profile for the sample car.</p>
+      </div>
+      <div class="dash">
+        <div class="card span4">
+          <div class="hud">Health score <span class="sample-tag">Example</span></div>
+          <div class="gauge" style="margin-top:12px">
+            <svg width="120" height="120" viewBox="0 0 120 120" aria-hidden="true">
+              <circle cx="60" cy="60" r="50" fill="none" stroke="rgba(61,224,255,.12)" stroke-width="10"/>
+              <circle cx="60" cy="60" r="50" fill="none" stroke="#ffb02e" stroke-width="10" stroke-linecap="butt" stroke-dasharray="314" stroke-dashoffset="69" transform="rotate(-90 60 60)"/>
+            </svg>
+            <div><div class="big">78</div><div class="hud">2 items due soon</div></div>
+          </div>
+          <p class="fine">Odometer 142,380 mi · last logged Oct 28</p>
+        </div>
+        <div class="card span8">
+          <div class="hud">Service queue</div>
+          <ul class="svc" style="margin-top:6px">
+            <li><span class="dot r"></span><span>Oil and filter change</span><span class="due">overdue 420 mi</span></li>
+            <li><span class="dot w"></span><span>Tire rotation</span><span class="due">due in 380 mi</span></li>
+            <li><span class="dot w"></span><span>Engine air filter</span><span class="due">due in 1,600 mi</span></li>
+            <li><span class="dot g"></span><span>Timing belt and water pump</span><span class="due">done at 105,000 mi</span></li>
+            <li><span class="dot g"></span><span>Brake fluid flush</span><span class="due">due in 14 months</span></li>
+          </ul>
+        </div>
+        <div class="card span6">
+          <div class="hud">Tire pressure, cold (psi)</div>
+          <div class="tires" style="margin-top:16px">
+            <div class="tire">32<small>Front left</small></div>
+            <svg width="70" height="120" viewBox="0 0 70 120" aria-hidden="true"><rect x="15" y="6" width="40" height="108" rx="12" fill="none" stroke="#3de0ff" stroke-opacity=".5"/><rect x="4" y="18" width="10" height="24" fill="#3de0ff" fill-opacity=".5"/><rect x="56" y="18" width="10" height="24" fill="#3de0ff" fill-opacity=".5"/><rect x="4" y="80" width="10" height="24" fill="#3de0ff" fill-opacity=".5"/><rect x="56" y="80" width="10" height="24" fill="#ffb02e"/></svg>
+            <div class="tire">32<small>Front right</small></div>
+            <div class="tire">30<small>Rear left</small></div>
+            <span></span>
+            <div class="tire low">26<small>Rear right · low</small></div>
+          </div>
+          <p class="fine">Spec comes from the door-jamb placard for your trim. Vinsight flags anything 3 psi under.</p>
+        </div>
+        <div class="card span6">
+          <div class="hud">Fluids and specs</div>
+          <div class="fluid" style="margin-top:12px">
+            <div><span>Engine oil</span><b>Check owner's manual grade</b></div>
+            <div><span>Oil capacity with filter</span><b>From maintenance API</b></div>
+            <div><span>Coolant</span><b>OEM-type long life</b></div>
+            <div><span>Transmission</span><b>Automatic · OEM ATF</b></div>
+            <div><span>Brake fluid</span><b>DOT 3</b></div>
+          </div>
+          <p class="fine">Exact grades and capacities are filled from your VIN by a licensed maintenance-data provider. Vinsight never guesses an oil spec.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bay" id="diy">
+    <div class="wrap">
+      <div class="bay-head">
+        <div class="bay-num">03</div>
+        <h2>Do it yourself. <em>Keep the labor.</em></h2>
+        <p class="bay-sub">These jobs need basic hand tools and an afternoon. Costs are typical US ranges for a common sedan; the app swaps in real part prices for your car.</p>
+      </div>
+      <div class="diy-table-wrap">
+        <table>
+          <thead><tr><th>Job</th><th>Difficulty</th><th>Time</th><th>Shop</th><th>DIY parts</th><th>You keep</th></tr></thead>
+          <tbody id="diyRows"></tbody>
+        </table>
+      </div>
+      <p class="fine">Estimates only. Each job in the app links a model-specific video and the torque specs for your engine.</p>
+    </div>
+  </section>
+
+  <section class="bay" id="problems">
+    <div class="wrap">
+      <div class="bay-head">
+        <div class="bay-num">04</div>
+        <h2>Known issues <em>for your exact car.</em></h2>
+        <p class="bay-sub">Vinsight pulls open recalls and owner complaints from NHTSA for your year, make and model, so you know what tends to fail before it does.</p>
+      </div>
+      <div class="probs">
+        <div class="card">
+          <div class="hud" id="complaintHead">Most reported components</div>
+          <div id="complaintBars" style="margin-top:16px"></div>
+          <p class="fine" id="complaintNote"></p>
+        </div>
+        <div class="card">
+          <div class="hud" id="recallHead">Safety recalls</div>
+          <div id="recallList" style="margin-top:14px"></div>
+          <p class="fine">Recalls are listed by model year. Confirm whether one is still open for your VIN at nhtsa.gov/recalls.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="bay" id="build">
+    <div class="wrap">
+      <div class="bay-head">
+        <div class="bay-num">05</div>
+        <h2>Open source. <em>Built on GitHub.</em></h2>
+        <p class="bay-sub">The VIN decoder, recalls and complaints run on free public NHTSA APIs today. Maintenance schedules and parts pricing plug in through provider adapters.</p>
+      </div>
+      <div class="stack">
+        <div class="card"><span class="hud">Decode</span><h3>NHTSA vPIC</h3><p>Free, no key. Year, make, model, trim, engine, transmission and plant from the VIN.</p></div>
+        <div class="card"><span class="hud">Safety</span><h3>NHTSA recalls</h3><p>Free, no key. Recalls and owner complaints by year, make and model.</p></div>
+        <div class="card"><span class="hud">Maintenance</span><h3>CarMD or similar</h3><p>Paid key. OEM service schedule by mileage, plus repair costs and check-engine code lookups.</p></div>
+        <div class="card"><span class="hud">Parts</span><h3>eBay Browse API</h3><p>Free developer key. Live prices with fitment checks for your vehicle, sorted cheapest first.</p></div>
+      </div>
+<pre>git clone https://github.com/PrestonBaumgart/Car-stuff.git
+cd Car-stuff
+# open index.html, or turn on GitHub Pages for live NHTSA lookups</pre>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Vinsight · vehicle data from NHTSA public APIs</span>
+    <span>Not affiliated with NHTSA or any parts retailer. Always verify part numbers before buying.</span>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  /* ---------------- data ---------------- */
+  var vehicle = { vin: "1HGCM82633A004352", year: "2003", make: "Honda", model: "Accord", trim: "EX-V6", engine: "3.0L V6", trans: "Automatic", body: "Coupe", plant: "Marysville, United States" };
+
+  // Bundled snapshot for the example VIN (pulled from NHTSA, Nov 2026) so the page works offline.
+  var SAMPLE_RECALLS = [
+    ["19V182000","Air bags: driver frontal inflator"],["19V499000","Air bags: driver frontal inflator"],["19V501000","Air bags: passenger frontal inflator"],
+    ["18V268000","Air bags: passenger frontal inflator"],["17V220000","Air bags: passenger frontal inflator"],["15V320000","Air bags: driver frontal inflator"],
+    ["15V370000","Air bags: passenger frontal inflator"],["14V700000","Air bags"],["14V353000","Air bags"],
+    ["12V222000","Steering: power-assist hose and piping"],["10V364000","Electrical system: ignition"],["08V169000","Windshield wiper and washer motor"],
+    ["04V176000","Power train: automatic transmission"]
+  ];
+  var SAMPLE_RECALL_TOTAL = 24; // includes 11 equipment campaigns for aftermarket headlights
+  var SAMPLE_COMPLAINTS = { total: 2013, sample: 101, rows: [["Air bags",46],["Power train",19],["Steering",18],["Electrical system",9],["Engine",8],["Unknown or other",8]] };
+
+  var PARTS = [
+    { id:"oil", name:"Oil filter", sys:"Lubrication", q:"oil filter", every:"5k–7.5k mi", diff:1, shop:95, diy:38, tip:"Buy the filter and oil together. Check the drain plug washer: a fresh crush washer costs under a dollar and stops slow drips." },
+    { id:"airf", name:"Engine air filter", sys:"Intake", q:"engine air filter", every:"15k–30k mi", diff:1, shop:60, diy:16, tip:"Usually four clips, no tools. Hold the old one up to a light: if you can't see through it, it's done." },
+    { id:"cabin", name:"Cabin air filter", sys:"Climate", q:"cabin air filter", every:"15k–25k mi", diff:1, shop:75, diy:14, tip:"Lives behind the glovebox on most cars. Note the airflow arrow before you pull the old one." },
+    { id:"plugs", name:"Spark plugs", sys:"Ignition", q:"spark plugs", every:"60k–105k mi", diff:3, shop:340, diy:65, tip:"Change them with the engine cold and torque to spec. On a V6 the rear bank takes the most patience." },
+    { id:"batt", name:"Battery", sys:"Electrical", q:"car battery", every:"3–5 yrs", diff:2, shop:260, diy:170, tip:"Disconnect negative first, reconnect it last. Many parts stores test your old battery and charging system free." },
+    { id:"alt", name:"Alternator", sys:"Electrical", q:"alternator", every:"When it fails", diff:3, shop:650, diy:220, tip:"Dim lights and a battery that keeps dying point here. Test charging voltage at idle: about 13.8–14.5 V is healthy." },
+    { id:"rad", name:"Radiator", sys:"Cooling", q:"radiator", every:"Coolant every 5 yrs", diff:3, shop:700, diy:190, tip:"Plastic end tanks crack with age. A coolant smell or a crusty seam is your early warning." },
+    { id:"engine", name:"Engine", sys:"Power train", q:"engine mount", every:"Mounts at 100k+ mi", diff:4, shop:480, diy:120, tip:"Heavy vibration at idle in Drive often means a worn engine mount, not the engine itself." },
+    { id:"trans", name:"Transmission", sys:"Power train", q:"transmission filter ATF", every:"Fluid 30k–60k mi", diff:2, shop:180, diy:55, tip:"Use only the fluid type your manufacturer names. A drain-and-fill is safer than a pressure flush on high-mileage cars." },
+    { id:"brakesF", name:"Front brakes", sys:"Braking", q:"front brake pads rotors", every:"30k–70k mi", diff:2, shop:450, diy:130, tip:"Squeal from the wear tab means pads are low. Grinding means metal on metal: replace rotors too." },
+    { id:"brakesR", name:"Rear brakes", sys:"Braking", q:"rear brake pads rotors", every:"40k–80k mi", diff:2, shop:400, diy:115, tip:"Rear pads wear slower than fronts. Some rear calipers need a wind-back tool instead of a C-clamp." },
+    { id:"tires", name:"Tires", sys:"Wheels", q:"tires", every:"Rotate every 5k–7.5k mi", diff:2, shop:40, diy:0, tip:"Rotate at every other oil change. A penny in the tread: if you see all of Lincoln's head, you're under 2/32\"." },
+    { id:"struts", name:"Struts and shocks", sys:"Suspension", q:"strut assembly", every:"50k–100k mi", diff:4, shop:900, diy:320, tip:"Complete strut assemblies avoid compressing springs yourself. Plan on an alignment afterward." },
+    { id:"exhaust", name:"Catalytic converter", sys:"Exhaust", q:"catalytic converter", every:"When it fails", diff:4, shop:1600, diy:450, tip:"Code P0420 can be a bad O2 sensor, not the cat. Rule out the cheap sensor first." },
+    { id:"lights", name:"Headlight bulbs", sys:"Lighting", q:"headlight bulb", every:"When dim or out", diff:1, shop:80, diy:22, tip:"Replace in pairs so the color and brightness match. Don't touch halogen glass with bare fingers." },
+    { id:"wipers", name:"Wiper blades", sys:"Visibility", q:"wiper blades", every:"6–12 months", diff:1, shop:55, diy:24, tip:"Streaks and chatter mean the rubber has hardened. Snow and ice chew through them; winter blades hold up better." }
+  ];
+  var byId = {}; PARTS.forEach(function (p) { byId[p.id] = p; });
+
+  var DIY = [
+    ["Oil and filter change","oil",1,"30 min"],["Engine air filter","airf",1,"5 min"],["Cabin air filter","cabin",1,"10 min"],
+    ["Wiper blades","wipers",1,"5 min"],["Headlight bulbs","lights",1,"20 min"],["Battery swap","batt",2,"20 min"],
+    ["Front brake pads and rotors","brakesF",2,"2 hrs"],["Spark plugs","plugs",3,"1.5 hrs"]
+  ];
+
+  /* ---------------- helpers ---------------- */
+  function $(id) { return document.getElementById(id); }
+  function money(n) { return "$" + n.toLocaleString("en-US"); }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]; }); }
+  function title(s) { return String(s || "").toLowerCase().replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); }
+  function wrenches(n) { var h = '<span class="wrench" aria-label="Difficulty ' + n + ' of 5">'; for (var i = 1; i <= 5; i++) h += '<i class="' + (i <= n ? "on" : "") + '"></i>'; return h + "</span>"; }
+  function carLabel() { return [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(" "); }
+
+  /* VIN check digit (position 9), per 49 CFR 565 */
+  var TR = { A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9 };
+  var WT = [8,7,6,5,4,3,2,10,0,9,8,7,6,5,4,3,2];
+  function vinCheck(v) {
+    if (v.length !== 17) return { s: "warn", t: v.length + " / 17 characters" };
+    if (/[IOQ]/.test(v)) return { s: "bad", t: "VINs never use I, O or Q" };
+    if (!/^[A-HJ-NPR-Z0-9]{17}$/.test(v)) return { s: "bad", t: "Letters and numbers only" };
+    var sum = 0;
+    for (var i = 0; i < 17; i++) { var c = v[i]; var n = /\d/.test(c) ? +c : TR[c]; sum += n * WT[i]; }
+    var r = sum % 11, cd = r === 10 ? "X" : String(r);
+    return v[8] === cd ? { s: "ok", t: "Check digit valid" } : { s: "warn", t: "Check digit mismatch (common on non-US VINs)" };
+  }
+
+  /* ---------------- parts UI ---------------- */
+  var selected = "oil";
+  function buyLinks(p) {
+    var q = [vehicle.year, vehicle.make, vehicle.model, vehicle.engine, p.q].join(" ");
+    var ebay = "https://www.ebay.com/sch/6030/i.html?_nkw=" + encodeURIComponent(q) + "&_sop=15";
+    var rock = "https://www.rockauto.com/en/catalog/" + encodeURIComponent((vehicle.make || "").toLowerCase()) + "," + encodeURIComponent(vehicle.year) + "," + encodeURIComponent((vehicle.model || "").toLowerCase());
+    var amz = "https://www.amazon.com/s?k=" + encodeURIComponent(q);
+    return '<a class="btn warm" href="' + ebay + '" target="_blank" rel="noopener">Cheapest on eBay Motors</a>' +
+           '<a class="btn ghost" href="' + rock + '" target="_blank" rel="noopener">RockAuto catalog</a>' +
+           '<a class="btn ghost" href="' + amz + '" target="_blank" rel="noopener">Amazon</a>';
+  }
+  function renderCard() {
+    var p = byId[selected];
+    var save = Math.max(0, p.shop - p.diy);
+    $("partCard").innerHTML =
+      '<div class="hud sys">' + esc(p.sys) + ' · fits ' + esc(carLabel()) + '</div>' +
+      '<h3>' + esc(p.name) + '</h3>' +
+      '<div class="stats">' +
+        '<div class="stat"><div class="hud">Service</div><div class="val" style="font-size:22px">' + esc(p.every) + '</div></div>' +
+        '<div class="stat"><div class="hud">DIY difficulty</div><div class="val">' + wrenches(p.diff) + '</div></div>' +
+        '<div class="stat"><div class="hud">Typical savings</div><div class="val save">' + money(save) + '</div></div>' +
+      '</div>' +
+      '<p>' + esc(p.tip) + '</p>' +
+      '<div class="buy">' + buyLinks(p) + '</div>' +
+      '<p class="fine">Shop about ' + money(p.shop) + ' vs. parts about ' + money(p.diy) + '. In the full app, the eBay Browse API checks fitment against your VIN and ranks results by total price.</p>';
+    Array.prototype.forEach.call(document.querySelectorAll(".partbtn"), function (b) { b.setAttribute("aria-pressed", b.dataset.id === selected ? "true" : "false"); });
+  }
+  function select(id, fromList) {
+    selected = id; renderCard();
+    if (window.__car && window.__car.focus) window.__car.focus(id);
+    if (fromList === "3d") { /* keep scroll */ }
+  }
+  $("partList").innerHTML = PARTS.map(function (p) {
+    return '<button type="button" class="partbtn" id="pb-' + p.id + '" data-id="' + p.id + '"><small>' + esc(p.sys) + '</small>' + esc(p.name) + '</button>';
+  }).join("");
+  $("partList").addEventListener("click", function (e) { var b = e.target.closest(".partbtn"); if (b) select(b.dataset.id); });
+
+  /* DIY table */
+  $("diyRows").innerHTML = DIY.map(function (r) {
+    var p = byId[r[1]]; var save = p.shop - p.diy;
+    return "<tr><td>" + esc(r[0]) + "</td><td>" + wrenches(r[2]) + '</td><td class="num">' + r[3] + '</td><td class="num">' + money(p.shop) + '</td><td class="num">' + money(p.diy) + '</td><td class="num save">' + money(save) + "</td></tr>";
+  }).join("");
+
+  /* ticker */
+  var tick = ["<b>●</b> Oil filter mapped", "<b class='w'>●</b> Tire RR 26 psi", "<b>●</b> Brake pads 6 mm", "<b class='r'>●</b> 24 recalls on file", "<b>●</b> Battery 12.6 V", "<b class='w'>●</b> Air filter due 1,600 mi", "<b>●</b> Coolant in range", "<b>●</b> 16 parts priced", "<b>●</b> DIY savings $2,180/yr"];
+  var tHTML = tick.map(function (t) { return "<span>" + t + "</span>"; }).join("");
+  $("ticker").innerHTML = tHTML + tHTML;
+
+  /* ---------------- known issues ---------------- */
+  function renderComplaints(rows, total, note) {
+    var max = rows.length ? rows[0][1] : 1;
+    $("complaintBars").innerHTML = rows.map(function (r) {
+      return '<div class="bar"><span>' + esc(r[0]) + '</span><span class="t"><i style="width:' + Math.round(r[1] / max * 100) + '%"></i></span><span class="n">' + r[1] + "</span></div>";
+    }).join("");
+    $("complaintHead").textContent = "Owner complaints · " + total.toLocaleString("en-US") + " on file";
+    $("complaintNote").textContent = note;
+  }
+  function renderRecalls(list, total, note) {
+    $("recallHead").textContent = "Safety recalls · " + total + " campaigns" + (note ? " " + note : "");
+    $("recallList").innerHTML = list.length ? list.map(function (r) {
+      return '<div class="recall"><div class="hud">' + esc(r[0]) + '</div><div>' + esc(r[1]) + "</div></div>";
+    }).join("") : '<p class="fine">No recalls on file for this year, make and model.</p>';
+  }
+  function loadSampleIssues() {
+    renderComplaints(SAMPLE_COMPLAINTS.rows, SAMPLE_COMPLAINTS.total, "Counts from a " + SAMPLE_COMPLAINTS.sample + "-complaint sample (NHTSA snapshot, Nov 2026). Complaints are unverified owner reports.");
+    renderRecalls(SAMPLE_RECALLS, SAMPLE_RECALL_TOTAL, "(snapshot)");
+  }
+  loadSampleIssues();
+
+  /* ---------------- VIN decode ---------------- */
+  var vinEl = $("vin");
+  function updateCheck() {
+    vinEl.value = vinEl.value.toUpperCase().replace(/\s/g, "");
+    var c = vinCheck(vinEl.value);
+    $("vinCheck").textContent = c.t; $("vinCheck").dataset.s = c.s;
+    $("vinCount").textContent = vinEl.value.length + " / 17";
+    return c;
+  }
+  vinEl.addEventListener("input", updateCheck);
+
+  function setSource(t, s) { $("vinSource").textContent = t; $("vinSource").dataset.s = s || ""; }
+  function applyVehicle() {
+    $("hudCar").textContent = carLabel();
+    renderCard();
+  }
+
+  async function decode(v) {
+    setSource("Contacting NHTSA…", "warn");
+    try {
+      var res = await fetch("https://vpic.nhtsa.dot.gov/api/vehicles/DecodeVinValues/" + v + "?format=json");
+      if (!res.ok) throw new Error("http " + res.status);
+      var d = (await res.json()).Results[0];
+      if (!d.Make) { setSource("NHTSA couldn't match this VIN. Double-check the characters.", "bad"); return; }
+      var disp = d.DisplacementL ? (Math.round(parseFloat(d.DisplacementL) * 10) / 10).toFixed(1) + "L" : "";
+      var cyl = d.EngineCylinders ? (d.EngineConfiguration && /V/.test(d.EngineConfiguration) ? "V" : "I") + d.EngineCylinders : "";
+      vehicle = { vin: v, year: d.ModelYear, make: title(d.Make), model: d.Model, trim: d.Trim, engine: [disp, cyl].filter(Boolean).join(" "), trans: d.TransmissionStyle, body: d.BodyClass, plant: title(d.PlantCity) };
+      applyVehicle();
+      setSource("Live from NHTSA: " + carLabel() + (vehicle.engine ? " · " + vehicle.engine : ""), "ok");
+      loadLiveIssues();
+    } catch (err) {
+      if (v === "1HGCM82633A004352") {
+        setSource("Showing saved NHTSA result. Live lookups run once the page is hosted.", "warn");
+        vehicle = { vin: v, year: "2003", make: "Honda", model: "Accord", trim: "EX-V6", engine: "3.0L V6", trans: "Automatic", body: "Coupe", plant: "Marysville" };
+        applyVehicle(); loadSampleIssues();
+      } else {
+        setSource("This preview can't reach NHTSA. Host the page on GitHub Pages for live decoding.", "bad");
+      }
+    }
+  }
+  async function loadLiveIssues() {
+    var qs = "make=" + encodeURIComponent(vehicle.make) + "&model=" + encodeURIComponent(vehicle.model) + "&modelYear=" + encodeURIComponent(vehicle.year);
+    try {
+      var r = await (await fetch("https://api.nhtsa.gov/recalls/recallsByVehicle?" + qs)).json();
+      var list = (r.results || []).map(function (x) { return [x.NHTSACampaignNumber, title(x.Component).replace(/:/g, ": ")]; });
+      renderRecalls(list, r.Count || list.length, "");
+    } catch (e) { renderRecalls([], 0, "(couldn't load)"); }
+    try {
+      var c = await (await fetch("https://api.nhtsa.gov/complaints/complaintsByVehicle?" + qs)).json();
+      var tally = {};
+      (c.results || []).forEach(function (x) { String(x.components || "Unknown").split(",").forEach(function (k) { k = title(k.trim()); tally[k] = (tally[k] || 0) + 1; }); });
+      var rows = Object.keys(tally).map(function (k) { return [k, tally[k]]; }).sort(function (a, b) { return b[1] - a[1]; }).slice(0, 6);
+      renderComplaints(rows, c.count || (c.results || []).length, "Live from NHTSA. Complaints are unverified owner reports.");
+    } catch (e) { /* keep previous */ }
+  }
+
+  $("vinForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var c = updateCheck();
+    if (c.s === "bad" || vinEl.value.length !== 17) { vinEl.focus(); return; }
+    decode(vinEl.value);
+  });
+
+  renderCard();
+
+  /* ---------------- 3D hologram ---------------- */
+  var canvas = $("car3d"), stage = $("stage");
+  if (!window.THREE) { stage.insertAdjacentHTML("beforeend", '<div class="nogl hud">3D view needs WebGL. The parts list below has everything.</div>'); return; }
+  var renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true }); }
+  catch (e) { stage.insertAdjacentHTML("beforeend", '<div class="nogl hud">3D view needs WebGL. The parts list below has everything.</div>'); return; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  var scene = new THREE.Scene();
+  scene.fog = new THREE.Fog(0x070b14, 9, 20);
+  var camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
+  camera.position.set(5.4, 3.1, 5.6);
+  var controls = THREE.OrbitControls ? new THREE.OrbitControls(camera, canvas) : null;
+  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (controls) {
+    controls.target.set(0.1, 0.7, 0);
+    controls.enableDamping = true; controls.dampingFactor = 0.08;
+    controls.enablePan = false; controls.enableZoom = false;
+    controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.45;
+    controls.autoRotate = !reduce; controls.autoRotateSpeed = 0.7;
+  } else { camera.lookAt(0.1, 0.7, 0); }
+
+  var HOLO = 0x3de0ff, AMBER = 0xffb02e, CORAL = 0xff4d6d;
+  scene.add(new THREE.AmbientLight(0x6688aa, 0.6));
+  var key = new THREE.PointLight(HOLO, 1.2, 20); key.position.set(3, 5, 3); scene.add(key);
+
+  // floor grid + rings
+  var grid = new THREE.GridHelper(16, 40, HOLO, 0x123047); grid.material.transparent = true; grid.material.opacity = 0.35; scene.add(grid);
+  var rings = [];
+  [2.9, 3.4, 4.2].forEach(function (r, i) {
+    var g = new THREE.RingGeometry(r, r + (i === 1 ? 0.06 : 0.02), 128, 1, 0, Math.PI * (i === 1 ? 1.4 : 2));
+    var m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: i === 1 ? AMBER : HOLO, transparent: true, opacity: i === 1 ? 0.55 : 0.3, side: THREE.DoubleSide }));
+    m.rotation.x = -Math.PI / 2; m.position.y = 0.01; scene.add(m); rings.push(m);
+  });
+
+  // body shell (edges only, not clickable)
+  var car = new THREE.Group(); scene.add(car);
+  function shell(geo, pos, rot) {
+    var e = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 18), new THREE.LineBasicMaterial({ color: HOLO, transparent: true, opacity: 0.75 }));
+    var f = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: HOLO, transparent: true, opacity: 0.045, depthWrite: false, side: THREE.DoubleSide }));
+    [e, f].forEach(function (o) { o.position.set(pos[0], pos[1], pos[2]); if (rot) o.rotation.set(rot[0], rot[1], rot[2]); car.add(o); });
+  }
+  // lower body with sloped nose/tail via custom extrusion
+  var side = new THREE.Shape();
+  side.moveTo(-2.3, 0.35); side.lineTo(2.15, 0.35); side.lineTo(2.3, 0.62); side.lineTo(2.2, 0.95);
+  side.lineTo(0.95, 1.08); side.lineTo(0.35, 1.62); side.lineTo(-1.2, 1.62); side.lineTo(-1.85, 1.12);
+  side.lineTo(-2.3, 1.02); side.lineTo(-2.3, 0.35);
+  var bodyGeo = new THREE.ExtrudeGeometry(side, { depth: 1.76, bevelEnabled: true, bevelSize: 0.06, bevelThickness: 0.06, bevelSegments: 2, steps: 1 });
+  bodyGeo.translate(0, 0, -0.88);
+  shell(bodyGeo, [0, 0, 0]);
+  // windows outline
+  var win = new THREE.Shape(); win.moveTo(0.8, 1.12); win.lineTo(0.32, 1.55); win.lineTo(-1.15, 1.55); win.lineTo(-1.7, 1.14); win.lineTo(0.8, 1.12);
+  [-0.95, 0.95].forEach(function (z) {
+    var l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(win.getPoints()), new THREE.LineBasicMaterial({ color: HOLO, transparent: true, opacity: 0.5 }));
+    l.position.z = z; car.add(l);
+  });
+
+  // clickable parts
+  var pickables = [], meshesById = {};
+  function partMat(c) { return new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.55, transparent: true, opacity: 0.78, roughness: 0.4, metalness: 0.2 }); }
+  function addPart(id, geo, pos, rot, color) {
+    var m = new THREE.Mesh(geo, partMat(color || HOLO));
+    m.position.set(pos[0], pos[1], pos[2]); if (rot) m.rotation.set(rot[0], rot[1], rot[2]);
+    m.userData.id = id; m.userData.base = color || HOLO;
+    var edges = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 }));
+    m.add(edges);
+    car.add(m); pickables.push(m);
+    (meshesById[id] = meshesById[id] || []).push(m);
+    return m;
+  }
+  var cyl = function (r, h, s) { return new THREE.CylinderGeometry(r, r, h, s || 24); };
+  var RX = [Math.PI / 2, 0, 0], RZ = [0, 0, Math.PI / 2];
+
+  addPart("engine", new THREE.BoxGeometry(0.85, 0.5, 0.8), [1.45, 0.78, 0], null, 0x2aa8c8);
+  for (var i = 0; i < 3; i++) { addPart("plugs", cyl(0.035, 0.18, 8), [1.2 + i * 0.25, 1.1, 0.22], null, AMBER); addPart("plugs", cyl(0.035, 0.18, 8), [1.2 + i * 0.25, 1.1, -0.22], null, AMBER); }
+  addPart("batt", new THREE.BoxGeometry(0.32, 0.26, 0.22), [1.7, 0.86, 0.62], null, 0x5dffa8);
+  addPart("oil", cyl(0.08, 0.16), [1.15, 0.5, -0.32], null, AMBER);
+  addPart("airf", new THREE.BoxGeometry(0.42, 0.12, 0.3), [1.55, 1.1, -0.56], null, 0x9ad7ff);
+  addPart("rad", new THREE.BoxGeometry(0.07, 0.48, 1.25), [2.1, 0.68, 0], null, 0x4f8cff);
+  addPart("alt", cyl(0.1, 0.16), [1.9, 0.95, 0.3], RX, 0xffd166);
+  addPart("trans", new THREE.CylinderGeometry(0.22, 0.16, 0.7, 16), [0.68, 0.6, 0], RZ, 0x2aa8c8);
+  addPart("cabin", new THREE.BoxGeometry(0.3, 0.06, 0.26), [0.8, 0.92, 0.42], null, 0x9ad7ff);
+  addPart("exhaust", new THREE.BoxGeometry(0.45, 0.16, 0.22), [0.0, 0.33, 0.3], null, CORAL);
+  addPart("exhaust", cyl(0.045, 2.1, 10), [-1.25, 0.33, 0.35], RZ, CORAL);
+  [-0.84, 0.84].forEach(function (z) {
+    addPart("lights", new THREE.BoxGeometry(0.1, 0.12, 0.3), [2.24, 0.8, z * 0.82], null, 0xffffff);
+    addPart("wipers", new THREE.BoxGeometry(0.03, 0.03, 0.62), [0.88, 1.12, z * 0.42], [0, 0, 0.3], 0x9ad7ff);
+  });
+  [[1.45, 1], [1.45, -1], [-1.45, 1], [-1.45, -1]].forEach(function (w) {
+    var x = w[0], s = w[1];
+    addPart("tires", new THREE.TorusGeometry(0.31, 0.11, 12, 32), [x, 0.42, s * 0.86], null, 0x1d3a55);
+    addPart(x > 0 ? "brakesF" : "brakesR", cyl(0.22, 0.05, 28), [x, 0.42, s * 0.74], RX, CORAL);
+    addPart("struts", cyl(0.05, 0.55, 10), [x, 0.85, s * 0.66], null, 0x9b8cff);
+  });
+  $("hudParts").textContent = PARTS.length;
+
+  // scanning plane
+  var scan = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 1.9), new THREE.MeshBasicMaterial({ color: HOLO, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false }));
+  scan.rotation.y = Math.PI / 2; scan.position.y = 0.95; car.add(scan);
+
+  // dust particles
+  var pg = new THREE.BufferGeometry(), pts = [];
+  for (var k = 0; k < 500; k++) pts.push((Math.random() - 0.5) * 14, Math.random() * 5, (Math.random() - 0.5) * 14);
+  pg.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+  var dust = new THREE.Points(pg, new THREE.PointsMaterial({ color: HOLO, size: 0.025, transparent: true, opacity: 0.6 }));
+  scene.add(dust);
+
+  // interaction
+  var ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), hoverId = null, tip = $("tip3d");
+  function pick(ev) {
+    var r = canvas.getBoundingClientRect();
+    mouse.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
+    mouse.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
+    ray.setFromCamera(mouse, camera);
+    var hit = ray.intersectObjects(pickables, false)[0];
+    return hit ? { id: hit.object.userData.id, x: ev.clientX - r.left, y: ev.clientY - r.top } : null;
+  }
+  canvas.addEventListener("pointermove", function (ev) {
+    var h = pick(ev); hoverId = h ? h.id : null;
+    if (h) { tip.hidden = false; tip.textContent = byId[h.id].name; tip.style.left = h.x + "px"; tip.style.top = h.y + "px"; canvas.style.cursor = "pointer"; }
+    else { tip.hidden = true; canvas.style.cursor = "crosshair"; }
+  });
+  canvas.addEventListener("pointerleave", function () { hoverId = null; tip.hidden = true; });
+  var downAt = null;
+  canvas.addEventListener("pointerdown", function (ev) { downAt = [ev.clientX, ev.clientY]; });
+  canvas.addEventListener("pointerup", function (ev) {
+    if (!downAt || Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 6) return;
+    var h = pick(ev); if (h) { select(h.id, "3d"); var b = $("pb-" + h.id); if (b && window.innerWidth > 900) { /* card is below; leave page still */ } }
+  });
+
+  window.__car = { focus: function () { if (controls) controls.autoRotate = false; } };
+
+  function resize() {
+    var w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h;
+    camera.position.setLength(w < 560 ? 9.6 : 8.4);
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener("resize", resize); resize();
+
+  var clock = new THREE.Clock();
+  (function loop() {
+    var t = clock.getElapsedTime();
+    scan.position.x = reduce ? 0 : Math.sin(t * 0.8) * 2.2;
+    rings[1].rotation.z = reduce ? 0 : t * 0.4; rings[2].rotation.z = reduce ? 0 : -t * 0.15;
+    if (!reduce) dust.rotation.y = t * 0.02;
+    pickables.forEach(function (m) {
+      var id = m.userData.id, on = id === selected, hov = id === hoverId;
+      m.material.emissive.setHex(on ? AMBER : m.userData.base);
+      m.material.color.setHex(on ? AMBER : m.userData.base);
+      m.material.emissiveIntensity = on ? 1.1 + (reduce ? 0 : Math.sin(t * 5) * 0.35) : hov ? 1.0 : 0.5;
+      m.material.opacity = on || hov ? 0.95 : 0.7;
+    });
+    if (controls) controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  })();
+})();
+</script>
+
+</body>
+</html>
