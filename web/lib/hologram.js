@@ -371,7 +371,9 @@ export function createHologram(root, options = {}) {
     const t = clock.getElapsedTime(), dt = Math.min(0.1, t - last); last = t;
     if (!onScreen) return;
     const inBay = mode !== "car";
-    carVis = reduce ? (inBay ? 0.1 : 1) : approach(carVis, inBay ? 0.1 : 1, dt, 3);
+    // the car body ghosts out in the engine bay and nearly disappears behind a part close-up
+    const carGoal = mode === "part" ? 0.025 : inBay ? 0.1 : 1;
+    carVis = reduce ? carGoal : approach(carVis, carGoal, dt, 3);
     bayVis = reduce ? (inBay ? 1 : 0) : approach(bayVis, inBay ? 1 : 0, dt, 3);
     explode = reduce ? (inBay ? 1 : 0) : approach(explode, inBay ? 1 : 0, dt, 2.2);
 
@@ -385,7 +387,7 @@ export function createHologram(root, options = {}) {
     bayPick.forEach(function (o) {
       const id = o.userData.id, on = mode === "part" ? id === partId : id === hoverId;
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, explode);
-      setVisibility(o, bayVis * (mode === "part" && !on ? 0.16 : 1), on ? (mode === "part" ? 0.25 + pulse : 0.3) : 0, AMBER);
+      setVisibility(o, bayVis * (mode === "part" && !on ? 0.12 : 1), on ? (mode === "part" ? 0.25 + pulse : 0.3) : 0, AMBER);
     });
     bayDecor.forEach(function (o) {
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, explode);
