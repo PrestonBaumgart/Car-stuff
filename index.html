@@ -87,61 +87,11 @@ a { color: var(--holo); }
 .vinmeta span[data-s="warn"] { color: var(--amber); }
 
 .stage { position: relative; min-height: 460px; min-width: 0; }
-#car3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: pan-y; }
-.corner { position: absolute; width: 34px; height: 34px; border: 2px solid var(--holo); pointer-events: none; opacity: .8; }
-.corner.tl { top: 0; left: 0; border-right: 0; border-bottom: 0; }
-.corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
-.corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
-.corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
-.stage-hud { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; z-index: 2; }
-.stage-hud .v { color: var(--holo); }
-.hint { position: absolute; left: 14px; bottom: 12px; pointer-events: none; color: var(--holo); z-index: 2; }
-#tip3d { position: absolute; pointer-events: none; z-index: 3; padding: 4px 8px; background: rgba(3,6,12,.9); border: 1px solid var(--holo); color: var(--holo); font-family: var(--f-hud); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; white-space: nowrap; transform: translate(12px, -50%); }
-.nogl { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--steel); padding: 24px; }
-
-/* engine bay + part close-up, layered over the canvas */
-.stage [hidden] { display: none !important; }
-.stage[data-mode="bay"] .hint { display: none; }
-.crumbs { position: absolute; left: 14px; top: 40px; z-index: 4; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-family: var(--f-hud); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--steel); }
-.crumbs button { font: inherit; letter-spacing: inherit; text-transform: inherit; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 5px 9px; cursor: pointer; }
-.crumbs button:hover { border-color: var(--holo); }
-.crumbs .here { color: var(--amber); }
-.baybtn { position: absolute; right: 14px; bottom: 12px; z-index: 4; }
-#bayLabels { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; transition: opacity .3s; }
-#bayLines { position: absolute; inset: 0; width: 100%; height: 100%; }
-#bayLines line { stroke: rgba(255,176,46,.55); stroke-width: 1; }
-.bdot { position: absolute; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-.bchip { position: absolute; left: 0; top: 0; pointer-events: auto; font-family: var(--f-hud); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; background: rgba(3,6,12,.88); border: 1px solid var(--line); color: var(--ink); padding: 3px 7px; cursor: pointer; }
-.bchip:hover, .bchip.on { border-color: var(--amber); color: var(--amber); }
-.baystrip { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; gap: 6px; overflow-x: auto; padding: 18px 14px 12px; background: linear-gradient(transparent, rgba(7,11,20,.92) 45%); scrollbar-width: thin; }
-.baystrip button { flex: none; font-family: var(--f-hud); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; background: var(--bay-2); border: 1px solid var(--line); color: var(--ink); padding: 7px 10px; cursor: pointer; }
-.baystrip button:hover, .baystrip button:focus-visible { border-color: var(--amber); color: var(--amber); }
-.partpanel { position: absolute; z-index: 5; right: 14px; top: 72px; bottom: 14px; width: min(340px, 50%); overflow-y: auto; background: rgba(9,14,26,.95); border: 1px solid var(--amber); padding: 16px; box-shadow: 0 0 40px rgba(255,176,46,.15); }
-.partpanel .back { font-family: var(--f-hud); font-size: 12px; letter-spacing: .12em; text-transform: uppercase; background: none; border: 0; color: var(--holo); padding: 0; cursor: pointer; }
-.partpanel h3 { font-family: var(--f-display); font-weight: 800; text-transform: uppercase; font-size: 34px; line-height: .95; color: var(--holo); margin: 10px 0 4px; }
-.partpanel .sys { color: var(--amber); }
-.partpanel p { font-size: 14px; color: #c3cee6; margin: 10px 0; }
-.partpanel .buy { display: grid; gap: 8px; margin-top: 12px; }
-.partpanel .buy .btn { justify-content: center; }
-.minis { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; }
-.minis div { border-top: 2px solid var(--line); padding-top: 6px; font-size: 14px; min-width: 0; }
-.minis .save { color: var(--ok); font-weight: 600; }
-.tiers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 14px 0 0; }
-.tier { border: 1px solid var(--line); padding: 8px; background: rgba(3,6,12,.5); min-width: 0; }
-.tier .hud { font-size: 10px; letter-spacing: .1em; }
-.tier .val { font-family: var(--f-display); font-weight: 800; font-size: 28px; line-height: 1; margin-top: 4px; font-variant-numeric: tabular-nums; }
-.tier.low { border-color: var(--ok); }
-.tier.low .val { color: var(--ok); }
-@media (max-width: 900px) {
-  .stage[data-mode="part"] { min-height: 660px; }
-  .partpanel { left: 10px; right: 10px; top: auto; bottom: 10px; width: auto; max-height: 58%; }
-}
-@media (max-width: 560px) { .bchip, #bayLines { display: none; } }
-
+.hero-cta { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+.hero-cta span { color: var(--steel); font-size: 14px; }
 @media (max-width: 900px) {
   .hero-grid { grid-template-columns: 1fr; min-height: 0; }
   .stage { min-height: 380px; }
-  .stage-hud > span:last-child { display: none; }
 }
 
 /* ---------- ticker ---------- */
@@ -279,20 +229,13 @@ footer .wrap { display: flex; justify-content: space-between; gap: 16px; flex-wr
             <span id="vinSource">Example vehicle loaded</span>
           </div>
         </form>
+        <div class="hero-cta">
+          <a class="btn ghost" href="app/">Try it in your garage →</a>
+          <span>The demo plays the real app. Add your car to explore it yourself.</span>
+        </div>
       </div>
 
-      <div class="stage" id="stage">
-        <canvas id="car3d" aria-label="Interactive 3D model of the car. Use the parts list below for keyboard access."></canvas>
-        <div class="stage-hud hud"><span>Scan <span class="v" id="hudCar">2003 Honda Accord EX-V6</span></span><span><span class="v" id="hudParts">0</span> parts mapped</span></div>
-        <nav class="crumbs" id="crumbs" aria-label="3D view"></nav>
-        <div id="bayLabels" aria-hidden="true"><svg id="bayLines"></svg></div>
-        <div class="hint hud" id="hint3d">Drag to orbit · Tap a glowing part</div>
-        <button type="button" class="btn baybtn" id="bayBtn" hidden>Open engine bay</button>
-        <div class="baystrip" id="bayStrip" role="group" aria-label="Engine bay parts" hidden></div>
-        <aside class="partpanel" id="partPanel" aria-label="Part details" hidden></aside>
-        <div id="tip3d" hidden></div>
-        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
-      </div>
+      <div class="stage" id="stage"></div>
     </div>
   </section>
 
@@ -434,14 +377,21 @@ cd Car-stuff
   </div>
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script>
+<!-- Keep this three.js version in step with web/package.json. -->
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/"
+} }
+</script>
+<script type="module">
+import { PARTS, byId, money, esc, wrenches, buyLinks, tiers, carLabel as labelFor } from "./web/lib/parts.js";
+import { createHologram } from "./web/lib/hologram.js";
 (function () {
   "use strict";
 
   /* ---------------- data ---------------- */
-  var vehicle = { vin: "1HGCM82633A004352", year: "2003", make: "Honda", model: "Accord", trim: "EX-V6", engine: "3.0L V6", trans: "Automatic", body: "Coupe", plant: "Marysville, United States" };
+  var vehicle = { vin: "1HGCM82633A004352", year: "2003", make: "Honda", model: "Accord", trim: "EX-V6", engine: "3.0L V6", cylinders: 6, fuel: "Gasoline", trans: "Automatic", body: "Coupe", plant: "Marysville, United States" };
 
   // Bundled snapshot for the example VIN (pulled from NHTSA, Nov 2026) so the page works offline.
   var SAMPLE_RECALLS = [
@@ -454,38 +404,6 @@ cd Car-stuff
   var SAMPLE_RECALL_TOTAL = 24; // includes 11 equipment campaigns for aftermarket headlights
   var SAMPLE_COMPLAINTS = { total: 2013, sample: 101, rows: [["Air bags",46],["Power train",19],["Steering",18],["Electrical system",9],["Engine",8],["Unknown or other",8]] };
 
-  // price: typical [economy, OE-quality, genuine OEM] part cost in USD. Estimates for a midsize car; live listings open on the buy links.
-  // bay: lives in the engine bay, so it shows in the engine bay close-up.
-  var PARTS = [
-    { id:"oil", name:"Oil filter", sys:"Lubrication", q:"oil filter", every:"5k–7.5k mi", diff:1, shop:95, diy:38, price:[22,38,55], unit:"filter + 5 qt oil", bay:true, tip:"Buy the filter and oil together. Check the drain plug washer: a fresh crush washer costs under a dollar and stops slow drips." },
-    { id:"airf", name:"Engine air filter", sys:"Intake", q:"engine air filter", every:"15k–30k mi", diff:1, shop:60, diy:16, price:[9,16,32], bay:true, tip:"Usually four clips, no tools. Hold the old one up to a light: if you can't see through it, it's done." },
-    { id:"cabin", name:"Cabin air filter", sys:"Climate", q:"cabin air filter", every:"15k–25k mi", diff:1, shop:75, diy:14, price:[8,14,30], tip:"Lives behind the glovebox on most cars. Note the airflow arrow before you pull the old one." },
-    { id:"plugs", name:"Spark plugs", sys:"Ignition", q:"spark plugs", every:"60k–105k mi", diff:3, shop:340, diy:65, price:[24,48,72], unit:"set", bay:true, tip:"Change them with the engine cold and torque to spec. On a V6 the rear bank takes the most patience." },
-    { id:"coils", name:"Ignition coils", sys:"Ignition", q:"ignition coil", every:"When misfiring", diff:2, shop:420, diy:180, price:[22,48,105], unit:"each", bay:true, tip:"A misfire code like P0302 names the cylinder. Swap that coil with a neighbor: if the misfire moves, the coil is bad." },
-    { id:"vcg", name:"Valve cover gaskets", sys:"Engine", q:"valve cover gasket set", every:"When leaking oil", diff:3, shop:380, diy:45, price:[18,35,70], unit:"set", bay:true, tip:"Burning-oil smell after a drive often means oil seeping onto the exhaust. Clean the old sealant off fully and torque bolts in the factory pattern." },
-    { id:"pcv", name:"PCV valve", sys:"Emissions", q:"PCV valve", every:"60k mi", diff:1, shop:90, diy:12, price:[6,12,25], bay:true, tip:"Shake it: a good one rattles. A stuck PCV valve can cause oil leaks and a rough idle for a few dollars of part." },
-    { id:"tbody", name:"Throttle body", sys:"Intake", q:"throttle body", every:"Clean every 30k mi", diff:2, shop:120, diy:10, price:[70,150,320], bay:true, tip:"Try a can of throttle body cleaner before buying one. Carbon buildup causes most rough idles." },
-    { id:"belt", name:"Serpentine belt", sys:"Accessory drive", q:"serpentine belt", every:"60k–100k mi", diff:2, shop:180, diy:35, price:[18,32,60], bay:true, tip:"Photograph the belt routing before you take it off. Cracks across the ribs mean it's time." },
-    { id:"tbelt", name:"Timing belt kit", sys:"Power train", q:"timing belt kit water pump", every:"90k–105k mi", diff:5, shop:950, diy:260, price:[110,190,340], unit:"kit", bay:true, tip:"Many V6s are interference engines: a snapped belt can wreck the valves. Do the water pump and tensioner at the same time." },
-    { id:"wpump", name:"Water pump", sys:"Cooling", q:"water pump", every:"With timing belt", diff:4, shop:550, diy:90, price:[45,85,160], bay:true, tip:"Coolant drips from the weep hole or a wobbly pulley are the early signs. If it's behind the timing belt, replace both together." },
-    { id:"thermo", name:"Thermostat", sys:"Cooling", q:"thermostat gasket", every:"When the gauge acts up", diff:2, shop:220, diy:30, price:[12,25,45], bay:true, tip:"Slow warm-up or weak heat means it's stuck open. Overheating can mean stuck closed. Use the factory temperature rating." },
-    { id:"hoses", name:"Radiator hoses", sys:"Cooling", q:"radiator hose upper lower", every:"5–7 yrs", diff:2, shop:260, diy:50, price:[20,40,75], unit:"pair", bay:true, tip:"Squeeze them cold: soft, swollen or crunchy hoses are due. Replace the clamps too." },
-    { id:"batt", name:"Battery", sys:"Electrical", q:"car battery", every:"3–5 yrs", diff:2, shop:260, diy:170, price:[120,170,230], bay:true, tip:"Disconnect negative first, reconnect it last. Many parts stores test your old battery and charging system free." },
-    { id:"alt", name:"Alternator", sys:"Electrical", q:"alternator", every:"When it fails", diff:3, shop:650, diy:220, price:[140,220,420], bay:true, tip:"Dim lights and a battery that keeps dying point here. Test charging voltage at idle: about 13.8–14.5 V is healthy." },
-    { id:"starter", name:"Starter motor", sys:"Electrical", q:"starter motor", every:"When it fails", diff:3, shop:520, diy:160, price:[90,150,320], bay:true, tip:"A single click with a good battery points to the starter or its relay. Check the cables and ground strap first." },
-    { id:"o2", name:"Oxygen sensor", sys:"Emissions", q:"oxygen sensor upstream", every:"About 100k mi", diff:2, shop:320, diy:70, price:[30,60,140], unit:"each", bay:true, tip:"A sensor socket makes this a 20-minute job. Upstream and downstream sensors are different parts." },
-    { id:"rad", name:"Radiator", sys:"Cooling", q:"radiator", every:"Coolant every 5 yrs", diff:3, shop:700, diy:190, price:[95,190,380], bay:true, tip:"Plastic end tanks crack with age. A coolant smell or a crusty seam is your early warning." },
-    { id:"engine", name:"Engine mounts", sys:"Power train", q:"engine mount", every:"100k+ mi", diff:4, shop:480, diy:120, price:[45,120,260], unit:"each", bay:true, tip:"Heavy vibration at idle in Drive often means a worn engine mount, not the engine itself." },
-    { id:"trans", name:"Transmission", sys:"Power train", q:"transmission filter ATF", every:"Fluid 30k–60k mi", diff:2, shop:180, diy:55, price:[28,55,95], unit:"filter + fluid", tip:"Use only the fluid type your manufacturer names. A drain-and-fill is safer than a pressure flush on high-mileage cars." },
-    { id:"brakesF", name:"Front brakes", sys:"Braking", q:"front brake pads rotors", every:"30k–70k mi", diff:2, shop:450, diy:130, price:[70,130,260], unit:"axle kit", tip:"Squeal from the wear tab means pads are low. Grinding means metal on metal: replace rotors too." },
-    { id:"brakesR", name:"Rear brakes", sys:"Braking", q:"rear brake pads rotors", every:"40k–80k mi", diff:2, shop:400, diy:115, price:[60,115,230], unit:"axle kit", tip:"Rear pads wear slower than fronts. Some rear calipers need a wind-back tool instead of a C-clamp." },
-    { id:"tires", name:"Tires", sys:"Wheels", q:"tires", every:"Rotate every 5k–7.5k mi", diff:2, shop:40, diy:0, price:[90,140,220], unit:"each", tip:"Rotate at every other oil change. A penny in the tread: if you see all of Lincoln's head, you're under 2/32\"." },
-    { id:"struts", name:"Struts and shocks", sys:"Suspension", q:"strut assembly", every:"50k–100k mi", diff:4, shop:900, diy:320, price:[220,320,640], unit:"pair", tip:"Complete strut assemblies avoid compressing springs yourself. Plan on an alignment afterward." },
-    { id:"exhaust", name:"Catalytic converter", sys:"Exhaust", q:"catalytic converter", every:"When it fails", diff:4, shop:1600, diy:450, price:[180,450,1400], tip:"Code P0420 can be a bad O2 sensor, not the cat. Rule out the cheap sensor first." },
-    { id:"lights", name:"Headlight bulbs", sys:"Lighting", q:"headlight bulb", every:"When dim or out", diff:1, shop:80, diy:22, price:[12,22,40], unit:"pair", tip:"Replace in pairs so the color and brightness match. Don't touch halogen glass with bare fingers." },
-    { id:"wipers", name:"Wiper blades", sys:"Visibility", q:"wiper blades", every:"6–12 months", diff:1, shop:55, diy:24, price:[16,24,40], unit:"pair", tip:"Streaks and chatter mean the rubber has hardened. Snow and ice chew through them; winter blades hold up better." }
-  ];
-  var byId = {}; PARTS.forEach(function (p) { byId[p.id] = p; });
 
   var DIY = [
     ["Oil and filter change","oil",1,"30 min"],["Engine air filter","airf",1,"5 min"],["Cabin air filter","cabin",1,"10 min"],
@@ -495,11 +413,8 @@ cd Car-stuff
 
   /* ---------------- helpers ---------------- */
   function $(id) { return document.getElementById(id); }
-  function money(n) { return "$" + n.toLocaleString("en-US"); }
-  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]; }); }
   function title(s) { return String(s || "").toLowerCase().replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }); }
-  function wrenches(n) { var h = '<span class="wrench" aria-label="Difficulty ' + n + ' of 5">'; for (var i = 1; i <= 5; i++) h += '<i class="' + (i <= n ? "on" : "") + '"></i>'; return h + "</span>"; }
-  function carLabel() { return [vehicle.year, vehicle.make, vehicle.model, vehicle.trim].filter(Boolean).join(" "); }
+  function carLabel() { return labelFor(vehicle); }
 
   /* VIN check digit (position 9), per 49 CFR 565 */
   var TR = { A:1,B:2,C:3,D:4,E:5,F:6,G:7,H:8,J:1,K:2,L:3,M:4,N:5,P:7,R:9,S:2,T:3,U:4,V:5,W:6,X:7,Y:8,Z:9 };
@@ -516,22 +431,6 @@ cd Car-stuff
 
   /* ---------------- parts UI ---------------- */
   var selected = "oil";
-  function buyLinks(p) {
-    var q = [vehicle.year, vehicle.make, vehicle.model, vehicle.engine, p.q].join(" ");
-    var ebay = "https://www.ebay.com/sch/6030/i.html?_nkw=" + encodeURIComponent(q) + "&_sop=15";
-    var rock = "https://www.rockauto.com/en/catalog/" + encodeURIComponent((vehicle.make || "").toLowerCase()) + "," + encodeURIComponent(vehicle.year) + "," + encodeURIComponent((vehicle.model || "").toLowerCase());
-    var amz = "https://www.amazon.com/s?k=" + encodeURIComponent(q);
-    return '<a class="btn warm" href="' + ebay + '" target="_blank" rel="noopener">Cheapest on eBay Motors</a>' +
-           '<a class="btn ghost" href="' + rock + '" target="_blank" rel="noopener">RockAuto catalog</a>' +
-           '<a class="btn ghost" href="' + amz + '" target="_blank" rel="noopener">Amazon</a>';
-  }
-  function tiers(p) {
-    var names = ["Economy", "OE-quality", "Genuine OEM"];
-    return '<div class="tiers">' + p.price.map(function (n, i) {
-      return '<div class="tier' + (i === 0 ? " low" : "") + '"><div class="hud">' + names[i] + '</div><div class="val">' + money(n) + "</div></div>";
-    }).join("") + "</div>" +
-    '<p class="fine">Typical part price' + (p.unit ? ", " + esc(p.unit) : "") + '. The buy links show live listings, cheapest first.</p>';
-  }
   function renderCard() {
     var p = byId[selected];
     var save = Math.max(0, p.shop - p.diy);
@@ -545,15 +444,11 @@ cd Car-stuff
       '</div>' +
       tiers(p) +
       '<p>' + esc(p.tip) + '</p>' +
-      '<div class="buy">' + buyLinks(p) + '</div>' +
+      '<div class="buy">' + buyLinks(p, vehicle) + '</div>' +
       '<p class="fine">Shop about ' + money(p.shop) + ' vs. parts about ' + money(p.diy) + '. In the full app, the eBay Browse API checks fitment against your VIN and ranks results by total price.</p>';
     Array.prototype.forEach.call(document.querySelectorAll(".partbtn"), function (b) { b.setAttribute("aria-pressed", b.dataset.id === selected ? "true" : "false"); });
   }
-  function select(id, fromList) {
-    selected = id; renderCard();
-    if (window.__car && window.__car.focus) window.__car.focus(id);
-    if (fromList === "3d") { /* keep scroll */ }
-  }
+  function select(id) { selected = id; renderCard(); }
   $("partList").innerHTML = PARTS.map(function (p) {
     return '<button type="button" class="partbtn" id="pb-' + p.id + '" data-id="' + p.id + '"><small>' + esc(p.sys) + '</small>' + esc(p.name) + '</button>';
   }).join("");
@@ -604,7 +499,7 @@ cd Car-stuff
 
   function setSource(t, s) { $("vinSource").textContent = t; $("vinSource").dataset.s = s || ""; }
   function applyVehicle() {
-    $("hudCar").textContent = carLabel();
+    holo.setVehicle(vehicle);
     renderCard();
   }
 
@@ -617,14 +512,14 @@ cd Car-stuff
       if (!d.Make) { setSource("NHTSA couldn't match this VIN. Double-check the characters.", "bad"); return; }
       var disp = d.DisplacementL ? (Math.round(parseFloat(d.DisplacementL) * 10) / 10).toFixed(1) + "L" : "";
       var cyl = d.EngineCylinders ? (d.EngineConfiguration && /V/.test(d.EngineConfiguration) ? "V" : "I") + d.EngineCylinders : "";
-      vehicle = { vin: v, year: d.ModelYear, make: title(d.Make), model: d.Model, trim: d.Trim, engine: [disp, cyl].filter(Boolean).join(" "), trans: d.TransmissionStyle, body: d.BodyClass, plant: title(d.PlantCity) };
+      vehicle = { vin: v, year: d.ModelYear, make: title(d.Make), model: d.Model, trim: d.Trim, engine: [disp, cyl].filter(Boolean).join(" "), cylinders: d.EngineCylinders, fuel: d.FuelTypePrimary, trans: d.TransmissionStyle, body: d.BodyClass, plant: title(d.PlantCity) };
       applyVehicle();
       setSource("Live from NHTSA: " + carLabel() + (vehicle.engine ? " · " + vehicle.engine : ""), "ok");
       loadLiveIssues();
     } catch (err) {
       if (v === "1HGCM82633A004352") {
         setSource("Showing saved NHTSA result. Live lookups run once the page is hosted.", "warn");
-        vehicle = { vin: v, year: "2003", make: "Honda", model: "Accord", trim: "EX-V6", engine: "3.0L V6", trans: "Automatic", body: "Coupe", plant: "Marysville" };
+        vehicle = { vin: v, year: "2003", make: "Honda", model: "Accord", trim: "EX-V6", engine: "3.0L V6", cylinders: 6, fuel: "Gasoline", trans: "Automatic", body: "Coupe", plant: "Marysville" };
         applyVehicle(); loadSampleIssues();
       } else {
         setSource("This preview can't reach NHTSA. Host the page on GitHub Pages for live decoding.", "bad");
@@ -656,412 +551,9 @@ cd Car-stuff
 
   renderCard();
 
-  /* ---------------- 3D hologram ---------------- */
-  // Three levels: the whole car ("car"), an exploded engine bay ("bay"), and one engine part up close with prices ("part").
-  var canvas = $("car3d"), stage = $("stage");
-  function noGl() { stage.insertAdjacentHTML("beforeend", '<div class="nogl hud">3D view needs WebGL. The parts list below has everything.</div>'); }
-  if (!window.THREE) { noGl(); return; }
-  var renderer;
-  try { renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true }); }
-  catch (e) { noGl(); return; }
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-  var scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(0x070b14, 9, 20);
-  var camera = new THREE.PerspectiveCamera(38, 1, 0.1, 100);
-  camera.position.set(5.4, 3.1, 5.6);
-  var CAR_T = new THREE.Vector3(0.1, 0.7, 0);
-  var look = CAR_T.clone(); // orbit target when OrbitControls is unavailable
-  var controls = THREE.OrbitControls ? new THREE.OrbitControls(camera, canvas) : null;
-  var reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (controls) {
-    controls.target.copy(CAR_T);
-    controls.enableDamping = true; controls.dampingFactor = 0.08;
-    controls.enablePan = false; controls.enableZoom = false;
-    controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.45;
-    controls.autoRotate = !reduce; controls.autoRotateSpeed = 0.7;
-  } else { camera.lookAt(look); }
-  function target() { return controls ? controls.target : look; }
-
-  var HOLO = 0x3de0ff, AMBER = 0xffb02e, CORAL = 0xff4d6d;
-  scene.add(new THREE.AmbientLight(0x6688aa, 0.6));
-  var key = new THREE.PointLight(HOLO, 1.2, 20); key.position.set(3, 5, 3); scene.add(key);
-
-  // floor grid + rings
-  var grid = new THREE.GridHelper(16, 40, HOLO, 0x123047); grid.material.transparent = true; grid.material.opacity = 0.35; scene.add(grid);
-  var rings = [];
-  [2.9, 3.4, 4.2].forEach(function (r, i) {
-    var g = new THREE.RingGeometry(r, r + (i === 1 ? 0.06 : 0.02), 128, 1, 0, Math.PI * (i === 1 ? 1.4 : 2));
-    var m = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: i === 1 ? AMBER : HOLO, transparent: true, opacity: i === 1 ? 0.55 : 0.3, side: THREE.DoubleSide }));
-    m.rotation.x = -Math.PI / 2; m.position.y = 0.01; scene.add(m); rings.push(m);
-  });
-
-  // body shell (edges only, not clickable). Materials are kept so the shell can fade when the engine bay opens.
-  var car = new THREE.Group(); scene.add(car);
-  var shellMats = [];
-  function fadeable(mat) { shellMats.push({ m: mat, base: mat.opacity }); return mat; }
-  function shell(geo, pos, rot) {
-    var e = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 18), fadeable(new THREE.LineBasicMaterial({ color: HOLO, transparent: true, opacity: 0.75 })));
-    var f = new THREE.Mesh(geo, fadeable(new THREE.MeshBasicMaterial({ color: HOLO, transparent: true, opacity: 0.045, depthWrite: false, side: THREE.DoubleSide })));
-    [e, f].forEach(function (o) { o.position.set(pos[0], pos[1], pos[2]); if (rot) o.rotation.set(rot[0], rot[1], rot[2]); car.add(o); });
-  }
-  // lower body with sloped nose/tail via custom extrusion
-  var side = new THREE.Shape();
-  side.moveTo(-2.3, 0.35); side.lineTo(2.15, 0.35); side.lineTo(2.3, 0.62); side.lineTo(2.2, 0.95);
-  side.lineTo(0.95, 1.08); side.lineTo(0.35, 1.62); side.lineTo(-1.2, 1.62); side.lineTo(-1.85, 1.12);
-  side.lineTo(-2.3, 1.02); side.lineTo(-2.3, 0.35);
-  var bodyGeo = new THREE.ExtrudeGeometry(side, { depth: 1.76, bevelEnabled: true, bevelSize: 0.06, bevelThickness: 0.06, bevelSegments: 2, steps: 1 });
-  bodyGeo.translate(0, 0, -0.88);
-  shell(bodyGeo, [0, 0, 0]);
-  // windows outline
-  var win = new THREE.Shape(); win.moveTo(0.8, 1.12); win.lineTo(0.32, 1.55); win.lineTo(-1.15, 1.55); win.lineTo(-1.7, 1.14); win.lineTo(0.8, 1.12);
-  [-0.95, 0.95].forEach(function (z) {
-    var l = new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(win.getPoints()), fadeable(new THREE.LineBasicMaterial({ color: HOLO, transparent: true, opacity: 0.5 })));
-    l.position.z = z; car.add(l);
-  });
-
-  function partMat(c) { return new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.55, transparent: true, opacity: 0.78, roughness: 0.4, metalness: 0.2 }); }
-  function makePart(id, geo, rot, color) {
-    var m = new THREE.Mesh(geo, partMat(color || HOLO));
-    if (rot) m.rotation.set(rot[0], rot[1], rot[2]);
-    m.userData.id = id; m.userData.base = color || HOLO;
-    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.35 })));
-    return m;
-  }
-
-  // whole-car parts (simplified; the engine bay ones are swapped for the detailed engine below)
-  var pickables = [];
-  function addPart(id, geo, pos, rot, color) {
-    var m = makePart(id, geo, rot, color);
-    m.position.set(pos[0], pos[1], pos[2]);
-    m.userData.inBay = !!(byId[id] && byId[id].bay);
-    car.add(m); pickables.push(m);
-    return m;
-  }
-  var cyl = function (r, h, s) { return new THREE.CylinderGeometry(r, r, h, s || 24); };
-  var RX = [Math.PI / 2, 0, 0], RZ = [0, 0, Math.PI / 2];
-
-  addPart("engine", new THREE.BoxGeometry(0.85, 0.5, 0.8), [1.45, 0.78, 0], null, 0x2aa8c8);
-  for (var i = 0; i < 3; i++) { addPart("plugs", cyl(0.035, 0.18, 8), [1.2 + i * 0.25, 1.1, 0.22], null, AMBER); addPart("plugs", cyl(0.035, 0.18, 8), [1.2 + i * 0.25, 1.1, -0.22], null, AMBER); }
-  addPart("batt", new THREE.BoxGeometry(0.32, 0.26, 0.22), [1.7, 0.86, 0.62], null, 0x5dffa8);
-  addPart("oil", cyl(0.08, 0.16), [1.15, 0.5, -0.32], null, AMBER);
-  addPart("airf", new THREE.BoxGeometry(0.42, 0.12, 0.3), [1.55, 1.1, -0.56], null, 0x9ad7ff);
-  addPart("rad", new THREE.BoxGeometry(0.07, 0.48, 1.25), [2.1, 0.68, 0], null, 0x4f8cff);
-  addPart("alt", cyl(0.1, 0.16), [1.9, 0.95, 0.3], RX, 0xffd166);
-  addPart("trans", new THREE.CylinderGeometry(0.22, 0.16, 0.7, 16), [0.68, 0.6, 0], RZ, 0x2aa8c8);
-  addPart("cabin", new THREE.BoxGeometry(0.3, 0.06, 0.26), [0.8, 0.92, 0.42], null, 0x9ad7ff);
-  addPart("exhaust", new THREE.BoxGeometry(0.45, 0.16, 0.22), [0.0, 0.33, 0.3], null, CORAL);
-  addPart("exhaust", cyl(0.045, 2.1, 10), [-1.25, 0.33, 0.35], RZ, CORAL);
-  [-0.84, 0.84].forEach(function (z) {
-    addPart("lights", new THREE.BoxGeometry(0.1, 0.12, 0.3), [2.24, 0.8, z * 0.82], null, 0xffffff);
-    addPart("wipers", new THREE.BoxGeometry(0.03, 0.03, 0.62), [0.88, 1.12, z * 0.42], [0, 0, 0.3], 0x9ad7ff);
-  });
-  [[1.45, 1], [1.45, -1], [-1.45, 1], [-1.45, -1]].forEach(function (w) {
-    var x = w[0], s = w[1];
-    addPart("tires", new THREE.TorusGeometry(0.31, 0.11, 12, 32), [x, 0.42, s * 0.86], null, 0x1d3a55);
-    addPart(x > 0 ? "brakesF" : "brakesR", cyl(0.22, 0.05, 28), [x, 0.42, s * 0.74], RX, CORAL);
-    addPart("struts", cyl(0.05, 0.55, 10), [x, 0.85, s * 0.66], null, 0x9b8cff);
-  });
-  $("hudParts").textContent = PARTS.length;
-
-  // detailed engine bay. Each piece has a rest position and an "exploded" offset (engine-local coordinates):
-  // the crankshaft runs along z, front bank faces the radiator (+x), accessory belt at +z, timing belt at -z.
-  var engine = new THREE.Group(); engine.position.set(1.45, 0.78, 0); engine.visible = false; car.add(engine);
-  var bayPick = [], bayDecor = [], bayMeshes = {};
-  function bay(id, geo, rest, ex, rot, color) {
-    var m = makePart(id, geo, rot, color);
-    m.userData.rest = new THREE.Vector3().fromArray(rest);
-    m.userData.ex = new THREE.Vector3().fromArray(ex);
-    m.position.copy(m.userData.rest);
-    engine.add(m);
-    if (id) { bayPick.push(m); (bayMeshes[id] = bayMeshes[id] || []).push(m); } else bayDecor.push(m);
-    return m;
-  }
-  var tube = function (pts, r) { return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map(function (p) { return new THREE.Vector3().fromArray(p); })), 24, r, 8); };
-  var BLOCK = 0x2aa8c8, METAL = 0x7fb6d6;
-  // block, heads, oil pan and mounts all count as "engine" (engine mounts)
-  bay("engine", new THREE.BoxGeometry(0.56, 0.4, 0.64), [0, 0, 0], [0, 0, 0], null, BLOCK);
-  bay("engine", new THREE.BoxGeometry(0.5, 0.08, 0.58), [0, -0.25, 0], [0, -0.08, 0], null, 0x1f7f99);
-  [-1, 1].forEach(function (s) {
-    bay("engine", new THREE.BoxGeometry(0.2, 0.12, 0.56), [s * 0.17, 0.24, 0], [s * 0.04, 0.05, 0], [0, 0, -s * 0.3], BLOCK);
-    bay("engine", new THREE.BoxGeometry(0.1, 0.08, 0.1), [0, -0.12, s * 0.38], [0, -0.1, s * 0.12], null, 0x9b8cff);
-    // valve covers, coils on top, plugs underneath
-    bay("vcg", new THREE.BoxGeometry(0.19, 0.04, 0.54), [s * 0.2, 0.32, 0], [s * 0.12, 0.26, 0], [0, 0, -s * 0.3], 0x9ad7ff);
-    [-0.18, 0, 0.18].forEach(function (z) {
-      bay("coils", new THREE.BoxGeometry(0.05, 0.1, 0.05), [s * 0.2, 0.38, z], [s * 0.2, 0.52, 0], null, 0xffd166);
-      bay("plugs", cyl(0.018, 0.13, 8), [s * 0.2, 0.3, z], [s * 0.3, 0.8, 0], null, AMBER);
-    });
-  });
-  bay("pcv", cyl(0.02, 0.06, 10), [-0.2, 0.36, 0.22], [-0.28, 0.4, 0.22], null, 0xff8fa3);
-  bay(null, new THREE.BoxGeometry(0.14, 0.1, 0.5), [0, 0.34, 0], [0, 0.12, 0], null, METAL); // intake manifold
-  bay("tbody", cyl(0.06, 0.08), [0, 0.34, -0.3], [0, 0.26, -0.36], RX, 0x9ad7ff);
-  bay("airf", new THREE.BoxGeometry(0.26, 0.12, 0.22), [0.3, 0.3, -0.55], [0.25, 0.3, -0.22], null, 0x9ad7ff);
-  // accessory drive at +z
-  bay("belt", new THREE.TorusGeometry(0.19, 0.012, 6, 48), [0.01, 0.03, 0.37], [0, 0, 0.58], null, 0xe8eefb);
-  bay(null, cyl(0.08, 0.04), [0, -0.1, 0.34], [0, 0, 0.36], RX, METAL); // crank pulley
-  bay("alt", cyl(0.07, 0.14), [0.15, 0.13, 0.31], [0.24, 0.22, 0.38], RX, 0xffd166);
-  bay("wpump", cyl(0.055, 0.08), [-0.13, 0.1, 0.33], [-0.24, 0.16, 0.38], RX, 0x4f8cff);
-  // timing belt at -z
-  bay("tbelt", new THREE.TorusGeometry(0.2, 0.014, 6, 48), [0, 0.08, -0.36], [0, -0.08, -0.5], null, 0xff8fa3);
-  // cooling
-  bay("thermo", cyl(0.035, 0.06, 16), [0.22, 0.2, 0.2], [0.26, 0.24, 0.16], null, 0x4f8cff);
-  bay("hoses", tube([[0.22, 0.2, 0.22], [0.42, 0.26, 0.34], [0.62, 0.14, 0.44]], 0.022), [0, 0, 0], [0.22, 0.04, 0.24], null, 0x1d6fb8);
-  bay("hoses", tube([[-0.05, -0.16, 0.3], [0.3, -0.26, 0.42], [0.62, -0.2, 0.44]], 0.022), [0, 0, 0], [0.22, -0.04, 0.24], null, 0x1d6fb8);
-  bay("rad", new THREE.BoxGeometry(0.06, 0.46, 1.1), [0.66, -0.05, 0], [0.5, 0, 0], null, 0x4f8cff);
-  // underside and electrical
-  bay("oil", cyl(0.05, 0.1), [0.3, -0.16, -0.15], [0.32, -0.16, -0.12], [0, 0, 0.5], AMBER);
-  bay(null, cyl(0.035, 0.5, 12), [0.32, -0.02, 0], [0.12, -0.04, 0], RX, CORAL); // exhaust manifold
-  bay("o2", cyl(0.018, 0.1, 8), [0.36, -0.08, 0.12], [0.38, -0.28, 0.12], RZ, CORAL);
-  bay("starter", cyl(0.05, 0.18), [-0.32, -0.15, -0.2], [-0.32, -0.16, -0.14], RZ, 0xffd166);
-  bay("batt", new THREE.BoxGeometry(0.3, 0.24, 0.2), [0.35, 0.05, 0.62], [0.18, 0.24, 0.24], null, 0x5dffa8);
-
-  var BAY = PARTS.filter(function (p) { return p.bay && bayMeshes[p.id]; });
-
-  // scanning plane
-  var scan = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 1.9), fadeable(new THREE.MeshBasicMaterial({ color: HOLO, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false })));
-  scan.rotation.y = Math.PI / 2; scan.position.y = 0.95; car.add(scan);
-
-  // dust particles
-  var pg = new THREE.BufferGeometry(), pts = [];
-  for (var k = 0; k < 500; k++) pts.push((Math.random() - 0.5) * 14, Math.random() * 5, (Math.random() - 0.5) * 14);
-  pg.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
-  var dust = new THREE.Points(pg, new THREE.PointsMaterial({ color: HOLO, size: 0.025, transparent: true, opacity: 0.6 }));
-  scene.add(dust);
-
-  /* ---- overlay UI: breadcrumbs, labels, bay strip, part panel ---- */
-  var mode = "car", partId = null;
-  var crumbs = $("crumbs"), hint = $("hint3d"), bayBtn = $("bayBtn"), strip = $("bayStrip"), panel = $("partPanel");
-  var labelsEl = $("bayLabels"), linesEl = $("bayLines");
-  bayBtn.hidden = false;
-
-  var labels = BAY.map(function (p) {
-    var dot = document.createElement("span"); dot.className = "bdot";
-    var chip = document.createElement("button"); chip.type = "button"; chip.className = "bchip"; chip.tabIndex = -1;
-    chip.textContent = p.name; chip.dataset.id = p.id;
-    var line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    labelsEl.appendChild(dot); labelsEl.appendChild(chip); linesEl.appendChild(line);
-    return { id: p.id, dot: dot, chip: chip, line: line, w: 0, h: 0 };
-  });
-  labelsEl.addEventListener("click", function (e) { var c = e.target.closest(".bchip"); if (c) openPart(c.dataset.id); });
-  strip.innerHTML = BAY.map(function (p) { return '<button type="button" data-id="' + p.id + '">' + esc(p.name) + "</button>"; }).join("");
-  strip.addEventListener("click", function (e) { var b = e.target.closest("button"); if (b) openPart(b.dataset.id, true); });
-
-  function renderPanel(p) {
-    var save = Math.max(0, p.shop - p.diy);
-    panel.innerHTML =
-      '<button type="button" class="back" data-back>‹ Engine bay</button>' +
-      '<h3 tabindex="-1">' + esc(p.name) + "</h3>" +
-      '<div class="hud sys">' + esc(p.sys) + " · fits " + esc(carLabel()) + (vehicle.engine ? " " + esc(vehicle.engine) : "") + "</div>" +
-      tiers(p) +
-      '<div class="buy">' + buyLinks(p) + "</div>" +
-      '<div class="minis">' +
-        '<div><span class="hud">Service</span><br>' + esc(p.every) + "</div>" +
-        '<div><span class="hud">DIY</span><br>' + wrenches(p.diff) + "</div>" +
-        '<div><span class="hud">You save</span><br><span class="save">' + money(save) + "</span></div>" +
-      "</div>" +
-      "<p>" + esc(p.tip) + "</p>";
-  }
-  panel.addEventListener("click", function (e) { if (e.target.closest("[data-back]")) setMode("bay"); });
-
-  function renderUI() {
-    stage.dataset.mode = mode;
-    var h = '<button type="button" data-go="car">Whole car</button>';
-    if (mode !== "car") h += "<span>›</span>" + (mode === "bay" ? '<span class="here">Engine bay</span>' : '<button type="button" data-go="bay">Engine bay</button>');
-    if (mode === "part") h += '<span>›</span><span class="here">' + esc(byId[partId].name) + "</span>";
-    crumbs.innerHTML = mode === "car" ? "" : h;
-    bayBtn.hidden = mode !== "car";
-    strip.hidden = mode !== "bay";
-    panel.hidden = mode !== "part";
-    hint.textContent = mode === "car" ? "Drag to orbit · Tap a glowing part" : "Drag to orbit · Esc to go back";
-    labels.forEach(function (l) { l.chip.classList.toggle("on", l.id === partId); });
-  }
-  crumbs.addEventListener("click", function (e) { var b = e.target.closest("[data-go]"); if (b) setMode(b.dataset.go); });
-  bayBtn.addEventListener("click", function () { setMode("bay"); });
-  document.addEventListener("keydown", function (e) {
-    if (e.key !== "Escape" || mode === "car") return;
-    var r = stage.getBoundingClientRect(); if (r.bottom < 0 || r.top > window.innerHeight) return;
-    setMode(mode === "part" ? "bay" : "car");
-  });
-
-  /* ---- camera flights ---- */
-  var BAY_T = new THREE.Vector3(1.75, 1.08, 0);
-  var BAY_DIR = new THREE.Vector3(1.0, 0.9, 0.8).normalize();
-  var CAR_DIR = new THREE.Vector3(5.4, 3.1, 5.6).sub(CAR_T).normalize();
-  var narrow = function () { return stage.clientWidth < 560; };
-  var stacked = function () { return window.innerWidth <= 900; };
-
-  function goal(m, id) {
-    if (m === "car") return { t: CAR_T.clone(), p: CAR_T.clone().add(CAR_DIR.clone().multiplyScalar(narrow() ? 9.6 : 8.4)) };
-    if (m === "bay") return { t: BAY_T.clone(), p: BAY_T.clone().add(BAY_DIR.clone().multiplyScalar(narrow() ? 5.4 : 4.4)) };
-    // part: frame the exploded piece(s), keeping roughly the current viewing angle
-    var box = new THREE.Box3();
-    car.updateMatrixWorld(true);
-    bayMeshes[id].forEach(function (m) {
-      var saved = m.position.clone();
-      m.position.copy(m.userData.rest).add(m.userData.ex); m.updateMatrixWorld(true);
-      box.expandByObject(m);
-      m.position.copy(saved); m.updateMatrixWorld(true);
-    });
-    var c = box.getCenter(new THREE.Vector3()), r = box.getSize(new THREE.Vector3()).length() / 2;
-    var dir = camera.position.clone().sub(target()).normalize();
-    dir.y = Math.max(dir.y, 0.4); dir.normalize();
-    var d = Math.min(3.2, Math.max(1.5, r * 6)) * (narrow() ? 1.3 : 1);
-    return { t: c, p: c.clone().add(dir.multiplyScalar(d)) };
-  }
-
-  var flight = null;
-  function fly(g, instant) {
-    if (reduce || instant) { flight = null; camera.position.copy(g.p); target().copy(g.t); if (!controls) camera.lookAt(look); return; }
-    flight = { p0: camera.position.clone(), t0: target().clone(), p1: g.p, t1: g.t, start: clock.getElapsedTime(), dur: 1.25 };
-    if (controls) controls.enabled = false;
-  }
-  function ease(k) { return k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2; }
-
-  // shift the rendered view so the part isn't hidden behind the panel
-  var shift = { x: 0, y: 0 }, shiftGoal = { x: 0, y: 0 };
-  function updateShift() {
-    shiftGoal = { x: 0, y: 0 };
-    if (mode !== "part") return;
-    if (stacked()) shiftGoal.y = (panel.offsetHeight + 10) / 2;
-    else shiftGoal.x = (panel.offsetWidth + 14) / 2;
-  }
-
-  function setMode(m, id, focusPanel) {
-    if (m === "part" && !bayMeshes[id]) return;
-    mode = m; partId = m === "part" ? id : null;
-    if (controls) { controls.autoRotate = !reduce && m !== "part"; controls.autoRotateSpeed = m === "bay" ? 0.35 : 0.7; }
-    if (m === "part") renderPanel(byId[id]);
-    renderUI();
-    resize(true);
-    if (m === "part") { if (focusPanel) panel.querySelector("h3").focus({ preventScroll: true }); }
-    updateShift();
-    fly(goal(m, id));
-  }
-  function openPart(id, focusPanel) { select(id, "3d"); setMode("part", id, focusPanel); }
-
-  /* ---- picking ---- */
-  var ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), hoverId = null, tip = $("tip3d");
-  function pick(ev) {
-    var r = canvas.getBoundingClientRect();
-    mouse.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
-    mouse.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
-    ray.setFromCamera(mouse, camera);
-    var hit = ray.intersectObjects(mode === "car" ? pickables : bayPick, false)[0];
-    return hit ? { id: hit.object.userData.id, x: ev.clientX - r.left, y: ev.clientY - r.top } : null;
-  }
-  function tipText(id) {
-    if (mode !== "car" || !byId[id].bay) return byId[id].name;
-    return id === "engine" ? "Engine · open the bay" : byId[id].name + " · open the bay";
-  }
-  canvas.addEventListener("pointermove", function (ev) {
-    var h = pick(ev); hoverId = h ? h.id : null;
-    if (h) { tip.hidden = false; tip.textContent = tipText(h.id); tip.style.left = h.x + "px"; tip.style.top = h.y + "px"; canvas.style.cursor = "pointer"; }
-    else { tip.hidden = true; canvas.style.cursor = "crosshair"; }
-  });
-  canvas.addEventListener("pointerleave", function () { hoverId = null; tip.hidden = true; });
-  var downAt = null;
-  canvas.addEventListener("pointerdown", function (ev) { downAt = [ev.clientX, ev.clientY]; });
-  canvas.addEventListener("pointerup", function (ev) {
-    if (!downAt || Math.hypot(ev.clientX - downAt[0], ev.clientY - downAt[1]) > 6) return;
-    var h = pick(ev); if (!h) return;
-    tip.hidden = true;
-    if (mode === "car") { select(h.id, "3d"); if (byId[h.id].bay) setMode("bay"); }
-    else openPart(h.id);
-  });
-
-  window.__car = { focus: function () { if (controls && mode === "car") controls.autoRotate = false; } };
-
-  // keepCamera: the caller is about to fly somewhere itself, so don't snap the camera first.
-  function resize(keepCamera) {
-    var w = stage.clientWidth, h = stage.clientHeight;
-    renderer.setSize(w, h, false); camera.aspect = w / h;
-    camera.updateProjectionMatrix();
-    updateShift();
-    if (!flight && !keepCamera) fly(goal(mode, partId), true);
-  }
-  window.addEventListener("resize", function () { resize(); });
-
-  /* ---- labels: project each bay part to the screen, then nudge chips so they don't overlap ---- */
-  var v3 = new THREE.Vector3();
-  function placeLabels(show) {
-    labelsEl.style.opacity = show ? 1 : 0;
-    if (!show) return;
-    var w = stage.clientWidth, h = stage.clientHeight, placed = [];
-    var items = labels.map(function (l) {
-      v3.set(0, 0, 0);
-      bayMeshes[l.id].forEach(function (m) { v3.add(m.getWorldPosition(new THREE.Vector3())); });
-      v3.divideScalar(bayMeshes[l.id].length).project(camera);
-      if (!l.w) { l.w = l.chip.offsetWidth; l.h = l.chip.offsetHeight; }
-      return { l: l, x: (v3.x + 1) / 2 * w, y: (1 - v3.y) / 2 * h, z: v3.z };
-    }).sort(function (a, b) { return a.y - b.y; });
-    items.forEach(function (it) {
-      var l = it.l, left = it.x > w * 0.62, cx = left ? it.x - 14 - l.w : it.x + 14, cy = it.y - l.h / 2;
-      cx = Math.max(4, Math.min(w - l.w - 4, cx));
-      for (var n = 0; n < 12 && placed.some(function (r) { return cx < r.x + r.w && cx + l.w > r.x && cy < r.y + r.h + 2 && cy + l.h + 2 > r.y; }); n++) cy += l.h + 3;
-      placed.push({ x: cx, y: cy, w: l.w, h: l.h });
-      var hidden = it.z > 1;
-      l.dot.style.display = l.chip.style.display = hidden ? "none" : "";
-      l.dot.style.transform = "translate(" + it.x + "px," + it.y + "px)";
-      l.chip.style.transform = "translate(" + cx + "px," + cy + "px)";
-      l.line.setAttribute("x1", it.x); l.line.setAttribute("y1", it.y);
-      l.line.setAttribute("x2", left ? cx + l.w : cx); l.line.setAttribute("y2", cy + l.h / 2);
-    });
-  }
-
-  /* ---- render loop ---- */
-  var clock = new THREE.Clock(), last = 0;
-  var carVis = 1, bayVis = 0, explode = 0;
-  function approach(v, goalV, dt, speed) { return v + (goalV - v) * Math.min(1, dt * speed); }
-  resize();
-  renderUI();
-  (function loop() {
-    var t = clock.getElapsedTime(), dt = t - last; last = t;
-    var inBay = mode !== "car";
-    carVis = reduce ? (inBay ? 0.12 : 1) : approach(carVis, inBay ? 0.12 : 1, dt, 3);
-    bayVis = reduce ? (inBay ? 1 : 0) : approach(bayVis, inBay ? 1 : 0, dt, 3);
-    explode = reduce ? (inBay ? 1 : 0) : approach(explode, inBay ? 1 : 0, dt, 2.2);
-
-    scan.position.x = reduce ? 0 : Math.sin(t * 0.8) * 2.2;
-    rings[1].rotation.z = reduce ? 0 : t * 0.4; rings[2].rotation.z = reduce ? 0 : -t * 0.15;
-    if (!reduce) dust.rotation.y = t * 0.02;
-    shellMats.forEach(function (s) { s.m.opacity = s.base * carVis; });
-
-    function paint(m, vis, on, hov) {
-      m.visible = vis > 0.02;
-      m.material.emissive.setHex(on ? AMBER : m.userData.base);
-      m.material.color.setHex(on ? AMBER : m.userData.base);
-      m.material.emissiveIntensity = on ? (mode === "part" ? 0.7 : 1.1) + (reduce ? 0 : Math.sin(t * 5) * 0.3) : hov ? 1.0 : 0.5;
-      m.material.opacity = (on || hov ? 0.95 : 0.7) * vis;
-      m.children[0].material.opacity = 0.35 * vis;
-    }
-    pickables.forEach(function (m) {
-      var id = m.userData.id;
-      paint(m, m.userData.inBay ? 1 - bayVis : Math.max(0.08, carVis), mode === "car" && id === selected, mode === "car" && id === hoverId);
-    });
-    engine.visible = bayVis > 0.02;
-    bayPick.forEach(function (m) {
-      var id = m.userData.id, on = mode === "part" ? id === partId : id === hoverId;
-      m.position.copy(m.userData.rest).addScaledVector(m.userData.ex, explode);
-      paint(m, bayVis * (mode === "part" && !on ? 0.22 : 1), mode === "part" && on, mode === "bay" && on);
-    });
-    bayDecor.forEach(function (m) { m.position.copy(m.userData.rest).addScaledVector(m.userData.ex, explode); paint(m, bayVis * (mode === "part" ? 0.12 : 0.5), false, false); });
-
-    if (flight) {
-      var k = ease(Math.min(1, (t - flight.start) / flight.dur));
-      camera.position.lerpVectors(flight.p0, flight.p1, k);
-      target().lerpVectors(flight.t0, flight.t1, k);
-      if (k >= 1) { flight = null; if (controls) controls.enabled = true; }
-    }
-    shift.x = reduce ? shiftGoal.x : approach(shift.x, shiftGoal.x, dt, 4);
-    shift.y = reduce ? shiftGoal.y : approach(shift.y, shiftGoal.y, dt, 4);
-    if (Math.abs(shift.x) + Math.abs(shift.y) > 0.5) camera.setViewOffset(stage.clientWidth, stage.clientHeight, shift.x, shift.y, stage.clientWidth, stage.clientHeight);
-    else camera.clearViewOffset();
-
-    if (controls) { if (flight) camera.lookAt(controls.target); else controls.update(); }
-    else camera.lookAt(look);
-    renderer.render(scene, camera);
-    placeLabels(mode === "bay" && !flight && bayVis > 0.9);
-    requestAnimationFrame(loop);
-  })();
+  /* ---------------- 3D demo ---------------- */
+  // The landing page plays the app's 3D view as a looping tour; the interactive version lives in the app (web/).
+  var holo = createHologram($("stage"), { vehicle: vehicle, demo: true });
 })();
 </script>
 

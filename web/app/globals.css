@@ -140,6 +140,16 @@ th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(138, 
 th { font: 12px var(--f-hud); text-transform: uppercase; letter-spacing: 0.1em; color: var(--steel); font-weight: 400; }
 .table-scroll { overflow-x: auto; }
 
+/* 3D parts bay (web/lib/hologram.js styles its own contents) */
+.holo-host {
+  min-height: 560px;
+  border-top: 1px solid var(--line);
+  background:
+    radial-gradient(ellipse 60% 50% at 62% 58%, rgba(61, 224, 255, 0.14), transparent 70%),
+    var(--bay);
+}
+@media (max-width: 560px) { .holo-host { min-height: 440px; } }
+
 .notice { border: 1px dashed var(--line); border-radius: 10px; padding: 12px 14px; font-size: 14px; color: var(--steel); }
 
 @media (max-width: 560px) {

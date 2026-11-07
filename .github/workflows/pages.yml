@@ -42,6 +42,9 @@ jobs:
           cp index.html _site/
           cp -r src _site/src
           cp -r web/out _site/app
+          # The landing page's 3D demo loads the app's shared modules directly.
+          mkdir -p _site/web/lib
+          cp web/lib/parts.js web/lib/hologram.js _site/web/lib/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

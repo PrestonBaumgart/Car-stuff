@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { CarHologram } from "@/components/CarHologram";
 import { HealthRing } from "@/components/HealthRing";
 import { KnownIssues } from "@/components/KnownIssues";
 import { OdometerCard } from "@/components/OdometerCard";
@@ -43,6 +44,7 @@ function CarView() {
   return (
     <div className="stack">
       <Header car={car} score={score} />
+      <CarHologram car={car} />
       <div className="grid two">
         <ServiceQueue car={car} queue={queue} />
         <div className="stack">

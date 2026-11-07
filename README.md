@@ -11,7 +11,7 @@ git clone https://github.com/PrestonBaumgart/Car-stuff.git
 cd Car-stuff
 ```
 
-To see the page, open `index.html` in a browser. There's no build step and nothing to install.
+To see the landing page, serve the repo folder with any static server, for example `npx serve .`, then open the address it prints. There's no build step. Opening `index.html` straight from disk won't work, because the page loads its 3D code as JavaScript modules, which browsers block on `file://` pages.
 
 Live VIN lookups need the page to be served over the web, not opened as a local file. You can use GitHub Pages (below) or any static server, such as `npx serve .`.
 
@@ -33,12 +33,13 @@ For now the garage is saved in the browser (`localStorage`), so there's no accou
 
 ```
 .
-├── index.html                  Landing page: 3D car, VIN decoder, health, DIY, known issues
+├── index.html                  Landing page: 3D demo tour, VIN decoder, health, DIY, known issues
 ├── src/lib/nhtsa.js            NHTSA client: VIN check digit, decode, recalls, complaints
 ├── web/                        The app (Next.js): My garage, service queue, odometer, specs, recalls
 │   ├── app/                    Pages: garage list (/) and car detail (/car/?vin=)
 │   ├── components/             Service queue, odometer, specs, known issues, health ring
-│   └── lib/                    Maintenance schedule logic, garage storage, typed NHTSA client
+│   └── lib/                    Maintenance logic, garage storage, NHTSA client, and the shared
+│                               3D view (hologram.js) and parts catalog (parts.js) the landing page also loads
 ├── .github/workflows/pages.yml Publishes the site to GitHub Pages on push to main
 ├── PLAN.md                     Landing page plan
 ├── README.md
@@ -77,7 +78,7 @@ Some limits to keep in mind:
 
 ## Planned architecture
 
-- **Frontend:** Next.js with React Three Fiber for the 3D parts bay.
+- **Frontend:** Next.js. The 3D parts bay is plain three.js in `web/lib/hologram.js`, shared with the landing page, which plays it as a demo.
 - **Backend:** serverless `/api/*` routes:
   - `vehicle/decode`
   - `safety/issues` (cached for 24 hours)
@@ -102,7 +103,8 @@ Some limits to keep in mind:
 - [ ] OEM maintenance schedule per VIN (CarMD or CarsXE, behind a server route)
 - [ ] Parts search with fitment checks and ranking
 - [ ] DIY job library
-- [ ] 3D parts bay with body-type models: sedan, SUV, truck and coupe
+- [x] 3D parts bay in the app: whole car, exploded engine bay, part prices and order links
+- [ ] 3D body-type models: sedan, SUV, truck and coupe
 - [ ] Email and push alerts
 - [ ] Mobile app and OBD-II dongle support
 
