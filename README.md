@@ -39,7 +39,7 @@ For now the garage is saved in the browser (`localStorage`), so there's no accou
 │   ├── app/                    Pages: garage list (/) and car detail (/car/?vin=)
 │   ├── components/             Service queue, odometer, specs, known issues, health ring
 │   └── lib/                    Maintenance logic, garage storage, NHTSA client, and the shared
-│                               3D view (hologram.js) and parts catalog (parts.js) the landing page also loads
+│                               3D view (hologram.js, car-model.js) and parts catalog (parts.js) the landing page also loads
 ├── .github/workflows/pages.yml Publishes the site to GitHub Pages on push to main
 ├── PLAN.md                     Landing page plan
 ├── README.md
