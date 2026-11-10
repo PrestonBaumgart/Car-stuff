@@ -32,7 +32,8 @@ const CSS = `
 .holo-crumbs button { font: inherit; letter-spacing: inherit; text-transform: inherit; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 5px 9px; cursor: pointer; }
 .holo-crumbs button:hover { border-color: var(--holo); }
 .holo-crumbs .here { color: var(--amber); }
-.holo-baybtn { position: absolute; right: 14px; bottom: 12px; z-index: 4; }
+.holo-actions { position: absolute; right: 14px; bottom: 12px; z-index: 4; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.holo-actions[hidden], .holo-actions [hidden] { display: none; }
 .holo-cartoggle { position: absolute; right: 14px; top: 40px; z-index: 4; font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; font-size: 12px; letter-spacing: .12em; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 5px 9px; cursor: pointer; }
 .holo-cartoggle:hover { border-color: var(--holo); }
 .holo-cartoggle[aria-pressed="false"] { color: var(--steel); }
@@ -121,7 +122,7 @@ export function createHologram(root, options = {}) {
     '<div class="holo-hud"><span>Scan <span class="v" data-car></span></span><span><span class="v">' + PARTS.length + "</span> parts mapped</span></div>" +
     '<nav class="holo-crumbs" aria-label="3D view"></nav>' +
     '<div class="holo-hint"></div>' +
-    '<button type="button" class="holo-btn holo-baybtn">Open engine bay</button>' +
+    '<div class="holo-actions"><button type="button" class="holo-btn warm holo-insidebtn">Inside the engine ›</button><button type="button" class="holo-btn holo-baybtn">Open engine bay</button></div>' +
     '<button type="button" class="holo-cartoggle" aria-pressed="true" hidden>Car: shown</button>' +
     '<div class="holo-strip" role="group" aria-label="Engine bay parts" hidden></div>' +
     '<aside class="holo-panel" aria-label="Part details" hidden></aside>' +
@@ -129,7 +130,7 @@ export function createHologram(root, options = {}) {
     '<span class="holo-corner tl"></span><span class="holo-corner tr"></span><span class="holo-corner bl"></span><span class="holo-corner br"></span>' +
     (demo ? '<div class="holo-cursor" aria-hidden="true">' + CURSOR + '</div><div class="holo-caption" aria-hidden="true"><b></b><strong></strong><span></span></div><button type="button" class="holo-pause"></button>' : "");
   const $ = (s) => root.querySelector(s);
-  const canvas = $(".holo-canvas"), crumbs = $(".holo-crumbs"), hint = $(".holo-hint"), bayBtn = $(".holo-baybtn");
+  const canvas = $(".holo-canvas"), crumbs = $(".holo-crumbs"), hint = $(".holo-hint"), bayBtn = $(".holo-baybtn"), insideBtn = $(".holo-insidebtn"), actions = $(".holo-actions");
   const strip = $(".holo-strip"), panel = $(".holo-panel"), tip = $(".holo-tip"), carToggle = $(".holo-cartoggle");
   canvas.setAttribute("aria-label", demo
     ? "Demo: the 3D car opens its engine bay, zooms into a part and shows its prices."
@@ -239,7 +240,9 @@ export function createHologram(root, options = {}) {
     if (level === "inside") h += "<span>›</span>" + step("inside", "Inside the engine");
     if (mode === "part") h += '<span>›</span><span class="here">' + esc(byId[partId].name) + "</span>";
     crumbs.innerHTML = mode === "car" ? "" : h;
-    bayBtn.hidden = demo || mode !== "car" || !BAY.length;
+    bayBtn.hidden = !BAY.length;
+    insideBtn.hidden = !INSIDE.length;
+    actions.hidden = demo || mode !== "car" || (!BAY.length && !INSIDE.length);
     strip.hidden = demo || (mode !== "bay" && mode !== "inside");
     if (!strip.hidden) renderStrip();
     panel.hidden = mode !== "part";
@@ -251,6 +254,7 @@ export function createHologram(root, options = {}) {
   }
   crumbs.addEventListener("click", function (e) { const b = e.target.closest("[data-go]"); if (b) setMode(b.dataset.go); });
   bayBtn.addEventListener("click", function () { setMode("bay"); });
+  insideBtn.addEventListener("click", function () { setMode("inside"); });
   function onKey(e) {
     if (demo || e.key !== "Escape" || mode === "car") return;
     const r = root.getBoundingClientRect(); if (r.bottom < 0 || r.top > window.innerHeight) return;
