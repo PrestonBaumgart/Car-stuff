@@ -1,16 +1,16 @@
-// Vinsight 3D parts bay: whole car → exploded engine bay → one part with prices and order links.
+// Vinsight 3D parts bay: whole car → exploded engine bay → inside the engine → one part with prices and order links.
 // Shared by the landing page (as an auto-playing demo) and the app's car page (interactive).
 // Plain JavaScript so the landing page can load it as a browser module through an import map.
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PARTS, byId, buyLinks, carLabel, esc, money, tiers, wrenches } from "./parts.js";
-import { buildCar, buildEngine, buildGarage, setVisibility } from "./car-model.js";
+import { buildCar, buildEngine, buildGarage, setVisibility, styleFor } from "./car-model.js";
 
 const CSS = `
 .holo { position: relative; overflow: hidden; }
 .holo [hidden] { display: none !important; }
 .holo-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: pan-y; }
-.holo.is-demo .holo-canvas, .holo.is-demo .holo-labels, .holo.is-demo .holo-panel, .holo.is-demo .holo-panel *, .holo.is-demo .holo-crumbs * { pointer-events: none !important; }
+.holo.is-demo .holo-canvas, .holo.is-demo .holo-panel, .holo.is-demo .holo-panel *, .holo.is-demo .holo-crumbs * { pointer-events: none !important; }
 .holo-hud, .holo-hint, .holo-crumbs, .holo-tip, .holo-chip, .holo-strip button, .holo-panel .back, .holo .hud, .holo-pause { font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; }
 .holo-hud { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; z-index: 2; letter-spacing: .14em; font-size: 12px; color: var(--steel); }
 .holo-hud .v { color: var(--holo); }
@@ -33,16 +33,13 @@ const CSS = `
 .holo-crumbs button:hover { border-color: var(--holo); }
 .holo-crumbs .here { color: var(--amber); }
 .holo-baybtn { position: absolute; right: 14px; bottom: 12px; z-index: 4; }
-.holo-labels { position: absolute; inset: 0; pointer-events: none; z-index: 3; overflow: hidden; transition: opacity .3s; }
-.holo-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
-.holo-lines line { stroke: rgba(255,176,46,.55); stroke-width: 1; }
-.holo-dot { position: absolute; left: 0; top: 0; width: 8px; height: 8px; margin: -4px 0 0 -4px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 8px var(--amber); }
-.holo-chip { position: absolute; left: 0; top: 0; pointer-events: auto; font-size: 11px; letter-spacing: .08em; white-space: nowrap; background: rgba(3,6,12,.88); border: 1px solid var(--line); color: var(--ink); padding: 3px 7px; cursor: pointer; }
-.holo-chip:hover, .holo-chip.on { border-color: var(--amber); color: var(--amber); }
-.holo.is-narrow .holo-chip, .holo.is-narrow .holo-lines { display: none; }
+.holo-cartoggle { position: absolute; right: 14px; top: 40px; z-index: 4; font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; font-size: 12px; letter-spacing: .12em; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 5px 9px; cursor: pointer; }
+.holo-cartoggle:hover { border-color: var(--holo); }
+.holo-cartoggle[aria-pressed="false"] { color: var(--steel); }
 .holo-strip { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; gap: 6px; overflow-x: auto; padding: 18px 14px 12px; background: linear-gradient(transparent, rgba(7,11,20,.92) 45%); scrollbar-width: thin; }
 .holo-strip button { flex: none; font-size: 12px; letter-spacing: .08em; background: var(--bay-2, #0d1424); border: 1px solid var(--line); color: var(--ink); padding: 7px 10px; cursor: pointer; }
 .holo-strip button:hover, .holo-strip button:focus-visible { border-color: var(--amber); color: var(--amber); }
+.holo-strip button.go { background: var(--amber); border-color: var(--amber); color: #021018; font-weight: 600; }
 .holo-panel { position: absolute; z-index: 5; right: 14px; top: 72px; bottom: 14px; width: min(340px, 50%); overflow-y: auto; background: rgba(9,14,26,.95); border: 1px solid var(--amber); padding: 16px; box-shadow: 0 0 40px rgba(255,176,46,.15); color: var(--ink); }
 .holo-panel .back { font-size: 12px; letter-spacing: .12em; background: none; border: 0; color: var(--holo); padding: 0; cursor: pointer; }
 .holo-panel h3 { font-family: var(--f-display, Impact, sans-serif); font-weight: 800; text-transform: uppercase; font-size: 34px; line-height: .95; color: var(--holo); margin: 10px 0 4px; }
@@ -89,9 +86,10 @@ const CURSOR = '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="tru
 const AMBER = 0xffb02e;
 const CAR_T = new THREE.Vector3(0.1, 0.7, 0);
 const CAR_DIR = new THREE.Vector3(5.4, 3.1, 5.6).sub(CAR_T).normalize();
-const BAY_T = new THREE.Vector3(1.75, 1.08, 0);
 const BAY_DIR = new THREE.Vector3(1.0, 0.9, 0.8).normalize();
-const TOUR = ["alt", "plugs", "tbelt", "batt", "coils", "rad", "wpump", "thermo"];
+const INSIDE_DIR = new THREE.Vector3(1.0, 0.5, 0.75).normalize();
+const TOUR = ["alt", "plugs", "batt", "coils", "rad", "wpump", "thermo"];
+const INSIDE_TOUR = ["pistons", "rings", "crank", "cam", "valves", "rods", "hgasket"];
 
 function injectCss() {
   if (document.getElementById("holo-css")) return;
@@ -105,7 +103,7 @@ function isElectric(v) { return /^electric$/i.test(String(v.fuel || "").trim());
 
 /**
  * root: an empty, sized element (give it a height or min-height).
- * options.vehicle: { year, make, model, trim, engine, cylinders, fuel }
+ * options.vehicle: { year, make, model, trim, engine, cylinders, fuel, bodyClass }
  * options.demo: play a looping guided tour instead of taking input.
  * options.onSelect(id): called when the viewer opens a part.
  */
@@ -120,9 +118,9 @@ export function createHologram(root, options = {}) {
     '<canvas class="holo-canvas"></canvas>' +
     '<div class="holo-hud"><span>Scan <span class="v" data-car></span></span><span><span class="v">' + PARTS.length + "</span> parts mapped</span></div>" +
     '<nav class="holo-crumbs" aria-label="3D view"></nav>' +
-    '<div class="holo-labels" aria-hidden="true"><svg class="holo-lines"></svg></div>' +
     '<div class="holo-hint"></div>' +
     '<button type="button" class="holo-btn holo-baybtn">Open engine bay</button>' +
+    '<button type="button" class="holo-cartoggle" aria-pressed="true" hidden>Car: shown</button>' +
     '<div class="holo-strip" role="group" aria-label="Engine bay parts" hidden></div>' +
     '<aside class="holo-panel" aria-label="Part details" hidden></aside>' +
     '<div class="holo-tip" hidden></div>' +
@@ -130,7 +128,7 @@ export function createHologram(root, options = {}) {
     (demo ? '<div class="holo-cursor" aria-hidden="true">' + CURSOR + '</div><div class="holo-caption" aria-hidden="true"><b></b><strong></strong><span></span></div><button type="button" class="holo-pause"></button>' : "");
   const $ = (s) => root.querySelector(s);
   const canvas = $(".holo-canvas"), crumbs = $(".holo-crumbs"), hint = $(".holo-hint"), bayBtn = $(".holo-baybtn");
-  const strip = $(".holo-strip"), panel = $(".holo-panel"), tip = $(".holo-tip"), labelsEl = $(".holo-labels"), linesEl = $(".holo-lines");
+  const strip = $(".holo-strip"), panel = $(".holo-panel"), tip = $(".holo-tip"), carToggle = $(".holo-cartoggle");
   canvas.setAttribute("aria-label", demo
     ? "Demo: the 3D car opens its engine bay, zooms into a part and shows its prices."
     : "Interactive 3D model of your car. Use the engine bay part buttons for keyboard access.");
@@ -157,50 +155,64 @@ export function createHologram(root, options = {}) {
   controls.autoRotate = !reduce; controls.autoRotateSpeed = 0.7;
 
   const env = buildGarage(scene, renderer);
-  const built = buildCar({ paint: options.paint });
-  const car = built.group, bodyParts = built.body, pickables = built.parts;
-  scene.add(car);
-
-  // engine bay, rebuilt when the cylinder count changes
-  let engine = null, bayPick = [], bayDecor = [], bayMeshes = {}, BAY = [];
   function disposeTree(o) {
     o.traverse(function (n) { if (n.geometry) n.geometry.dispose(); if (n.material) [].concat(n.material).forEach((m) => { if (m.map) m.map.dispose(); m.dispose(); }); });
   }
-  function buildBay() {
-    if (engine) { car.remove(engine); disposeTree(engine); }
-    bayPick = []; bayDecor = []; bayMeshes = {}; BAY = [];
-    engine = new THREE.Group();
-    if (!isElectric(vehicle)) {
-      const e = buildEngine(vehicle.cylinders);
-      engine = e.group; bayPick = e.parts; bayDecor = e.decor;
-      bayPick.forEach((o) => { (bayMeshes[o.userData.id] = bayMeshes[o.userData.id] || []).push(o); });
-      BAY = PARTS.filter((p) => p.bay && bayMeshes[p.id]);
-    }
-    engine.position.set(1.45, 0.78, 0); engine.visible = false; car.add(engine);
+
+  // the car body, rebuilt when the body style changes
+  let car = null, bodyParts = [], pickables = [], style = null, bayTarget = new THREE.Vector3();
+  function buildBody() {
+    if (car) { scene.remove(car); disposeTree(car); }
+    style = styleFor(vehicle.bodyClass || vehicle.body);
+    const built = buildCar({ style, paint: options.paint });
+    car = built.group; bodyParts = built.body; pickables = built.parts;
+    bayTarget = built.engineAt.clone().add(new THREE.Vector3(0.3, 0.3, 0));
+    car.userData.engineAt = built.engineAt;
+    scene.add(car);
   }
 
-  /* ---- overlay: labels, strip, panel, breadcrumbs ---- */
-  let mode = "car", partId = null, selected = null, labels = [];
-  function buildLabels() {
-    labelsEl.querySelectorAll(".holo-dot, .holo-chip").forEach((n) => n.remove());
-    linesEl.innerHTML = "";
-    labels = BAY.map(function (p) {
-      const dot = document.createElement("span"); dot.className = "holo-dot";
-      const chip = document.createElement("button"); chip.type = "button"; chip.className = "holo-chip"; chip.tabIndex = -1;
-      chip.textContent = p.name; chip.dataset.id = p.id;
-      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-      labelsEl.appendChild(dot); labelsEl.appendChild(chip); linesEl.appendChild(line);
-      return { id: p.id, dot, chip, line, w: 0, h: 0 };
-    });
-    strip.innerHTML = BAY.map((p) => '<button type="button" data-id="' + p.id + '">' + esc(p.name) + "</button>").join("");
+  // the engine bay and its internals, rebuilt with the body or when the engine changes
+  let engine = null, bayPick = [], bayDecor = [], insidePick = [], partMeshes = {}, BAY = [], INSIDE = [];
+  function buildBay() {
+    if (engine && engine.parent) engine.parent.remove(engine);
+    if (engine) disposeTree(engine);
+    bayPick = []; bayDecor = []; insidePick = []; partMeshes = {}; BAY = []; INSIDE = [];
+    engine = new THREE.Group();
+    if (!isElectric(vehicle)) {
+      const e = buildEngine({ cylinders: vehicle.cylinders, year: vehicle.year });
+      engine = e.group; bayPick = e.parts; bayDecor = e.decor; insidePick = e.inside;
+      bayPick.concat(insidePick).forEach((o) => { (partMeshes[o.userData.id] = partMeshes[o.userData.id] || []).push(o); });
+      BAY = PARTS.filter((p) => p.bay && partMeshes[p.id]);
+      INSIDE = PARTS.filter((p) => p.inside && partMeshes[p.id]);
+    }
+    engine.position.copy(car.userData.engineAt); engine.visible = false; car.add(engine);
   }
-  labelsEl.addEventListener("click", function (e) { const c = e.target.closest(".holo-chip"); if (c) openPart(c.dataset.id); });
-  strip.addEventListener("click", function (e) { const b = e.target.closest("button"); if (b) openPart(b.dataset.id, true); });
+
+  /* ---- overlay: strip, panel, breadcrumbs, car toggle ---- */
+  // mode: "car" | "bay" | "inside" | "part". A part opens from the bay or from inside the engine (its level).
+  let mode = "car", partId = null, selected = null, showCar = true;
+  const levelOf = (id) => (byId[id] && byId[id].inside ? "inside" : "bay");
+  const LEVEL_NAME = { bay: "Engine bay", inside: "Inside the engine" };
+  function renderStrip() {
+    if (mode === "bay") {
+      strip.setAttribute("aria-label", "Engine bay parts");
+      strip.innerHTML = (INSIDE.length ? '<button type="button" class="go" data-go="inside">Inside the engine ›</button>' : "") +
+        BAY.map((p) => '<button type="button" data-id="' + p.id + '">' + esc(p.name) + "</button>").join("");
+    } else if (mode === "inside") {
+      strip.setAttribute("aria-label", "Engine internals");
+      strip.innerHTML = INSIDE.map((p) => '<button type="button" data-id="' + p.id + '">' + esc(p.name) + "</button>").join("");
+    }
+  }
+  strip.addEventListener("click", function (e) {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.dataset.go) setMode(b.dataset.go); else openPart(b.dataset.id, true);
+  });
+  carToggle.addEventListener("click", function () { showCar = !showCar; renderUI(); });
 
   function renderPanel(p) {
     const save = Math.max(0, p.shop - p.diy);
     panel.innerHTML =
-      '<button type="button" class="back" data-back>‹ Engine bay</button>' +
+      '<button type="button" class="back" data-back>‹ ' + LEVEL_NAME[levelOf(p.id)] + "</button>" +
       '<h3 tabindex="-1">' + esc(p.name) + "</h3>" +
       '<div class="sys">' + esc(p.sys) + " · fits " + esc(carLabel(vehicle)) + (vehicle.engine ? " " + esc(vehicle.engine) : "") + "</div>" +
       tiers(p) +
@@ -212,27 +224,34 @@ export function createHologram(root, options = {}) {
       "</div>" +
       "<p>" + esc(p.tip) + "</p>";
   }
-  panel.addEventListener("click", function (e) { if (e.target.closest("[data-back]")) setMode("bay"); });
+  panel.addEventListener("click", function (e) { if (e.target.closest("[data-back]")) setMode(levelOf(partId)); });
 
   function renderUI() {
     root.dataset.mode = mode;
     $("[data-car]").textContent = carLabel(vehicle);
-    let h = '<button type="button" data-go="car">Whole car</button>';
-    if (mode !== "car") h += "<span>›</span>" + (mode === "bay" ? '<span class="here">Engine bay</span>' : '<button type="button" data-go="bay">Engine bay</button>');
+    const level = mode === "part" ? levelOf(partId) : mode;
+    const step = (key, label) => (mode === key ? '<span class="here">' + label + "</span>" : '<button type="button" data-go="' + key + '">' + label + "</button>");
+    let h = step("car", "Whole car");
+    if (mode !== "car") h += "<span>›</span>" + step("bay", "Engine bay");
+    if (level === "inside") h += "<span>›</span>" + step("inside", "Inside the engine");
     if (mode === "part") h += '<span>›</span><span class="here">' + esc(byId[partId].name) + "</span>";
     crumbs.innerHTML = mode === "car" ? "" : h;
     bayBtn.hidden = demo || mode !== "car" || !BAY.length;
-    strip.hidden = demo || mode !== "bay";
+    strip.hidden = demo || (mode !== "bay" && mode !== "inside");
+    if (!strip.hidden) renderStrip();
     panel.hidden = mode !== "part";
-    hint.textContent = mode === "car" ? (BAY.length ? "Drag to orbit · Tap the hood" : "Drag to orbit") : "Drag to orbit · Esc to go back";
-    labels.forEach((l) => l.chip.classList.toggle("on", l.id === partId));
+    carToggle.hidden = demo || (mode !== "bay" && mode !== "inside");
+    carToggle.setAttribute("aria-pressed", String(showCar));
+    carToggle.textContent = showCar ? "Car: shown" : "Car: hidden";
+    carToggle.title = showCar ? "Fade the car out" : "Show the car for reference";
+    hint.textContent = mode === "car" ? (BAY.length ? "Drag to orbit · Tap the hood" : "Drag to orbit") : "Drag to orbit · Hover a part for its name · Esc to go back";
   }
   crumbs.addEventListener("click", function (e) { const b = e.target.closest("[data-go]"); if (b) setMode(b.dataset.go); });
   bayBtn.addEventListener("click", function () { setMode("bay"); });
   function onKey(e) {
     if (demo || e.key !== "Escape" || mode === "car") return;
     const r = root.getBoundingClientRect(); if (r.bottom < 0 || r.top > window.innerHeight) return;
-    setMode(mode === "part" ? "bay" : "car");
+    setMode(mode === "part" ? levelOf(partId) : mode === "inside" ? "bay" : "car");
   }
   document.addEventListener("keydown", onKey);
 
@@ -240,11 +259,15 @@ export function createHologram(root, options = {}) {
   const narrow = () => root.clientWidth < 560;
   function goal(m, id) {
     if (m === "car") return { t: CAR_T.clone(), p: CAR_T.clone().addScaledVector(CAR_DIR, narrow() ? 9.6 : 8.4) };
-    if (m === "bay") return { t: BAY_T.clone(), p: BAY_T.clone().addScaledVector(BAY_DIR, narrow() ? 5.4 : 4.4) };
+    if (m === "bay") return { t: bayTarget.clone(), p: bayTarget.clone().addScaledVector(BAY_DIR, narrow() ? 5.4 : 4.4) };
+    if (m === "inside") {
+      const t = car.userData.engineAt.clone().add(new THREE.Vector3(0, 0.38, 0));
+      return { t, p: t.clone().addScaledVector(INSIDE_DIR, narrow() ? 3.0 : 2.4) };
+    }
     // part: frame the exploded piece(s), keeping roughly the current viewing angle
     const box = new THREE.Box3();
     car.updateMatrixWorld(true);
-    bayMeshes[id].forEach(function (m) {
+    partMeshes[id].forEach(function (m) {
       const saved = m.position.clone();
       m.position.copy(m.userData.rest).add(m.userData.ex); m.updateMatrixWorld(true);
       box.expandByObject(m);
@@ -276,9 +299,11 @@ export function createHologram(root, options = {}) {
 
   function setMode(m, id, focusPanel) {
     if (m !== "car" && !BAY.length) return;
-    if (m === "part" && !bayMeshes[id]) return;
+    if (m === "inside" && !INSIDE.length) return;
+    if (m === "part" && !partMeshes[id]) return;
     mode = m; partId = m === "part" ? id : null;
-    controls.autoRotate = !reduce && m !== "part"; controls.autoRotateSpeed = m === "bay" ? 0.35 : 0.7;
+    tip.hidden = true; hoverId = null; // a name from the previous view shouldn't linger
+    controls.autoRotate = !reduce && m !== "part"; controls.autoRotateSpeed = m === "car" ? 0.7 : 0.35;
     if (m === "part") renderPanel(byId[id]);
     renderUI();
     resize(true);
@@ -296,7 +321,9 @@ export function createHologram(root, options = {}) {
     mouse.x = ((ev.clientX - r.left) / r.width) * 2 - 1;
     mouse.y = -((ev.clientY - r.top) / r.height) * 2 + 1;
     ray.setFromCamera(mouse, camera);
-    const hit = ray.intersectObjects(mode === "car" ? pickables.concat(bodyParts) : bayPick.concat(bayDecor), true)[0];
+    const level = mode === "part" ? levelOf(partId) : mode;
+    const list = mode === "car" ? pickables.concat(bodyParts) : level === "inside" ? insidePick : bayPick.concat(bayDecor);
+    const hit = ray.intersectObjects(list, true)[0];
     return hit && hit.object.userData.id ? { id: hit.object.userData.id, x: ev.clientX - r.left, y: ev.clientY - r.top } : null;
   }
   function tipText(id) {
@@ -332,37 +359,17 @@ export function createHologram(root, options = {}) {
   const ro = new ResizeObserver(() => resize());
   ro.observe(root);
 
-  /* ---- labels: project each bay part to the screen, then nudge chips so they don't overlap ---- */
+  // where a part is on screen (the demo's cursor aims here)
   function screenPoint(id) {
-    const meshes = mode === "car" ? pickables.filter((m) => m.userData.id === id) : bayMeshes[id] || [];
+    const meshes = mode === "car" ? pickables.filter((m) => m.userData.id === id) : partMeshes[id] || [];
     const v = new THREE.Vector3();
     meshes.forEach((m) => v.add(m.getWorldPosition(new THREE.Vector3())));
     v.divideScalar(Math.max(1, meshes.length)).project(camera);
-    return { x: (v.x + 1) / 2 * root.clientWidth, y: (1 - v.y) / 2 * root.clientHeight, z: v.z };
-  }
-  function placeLabels(show) {
-    labelsEl.style.opacity = show ? 1 : 0;
-    labelsEl.style.visibility = show ? "visible" : "hidden"; // hidden chips must not catch clicks
-    if (!show) return;
-    const w = root.clientWidth, placed = [];
-    labels.map((l) => Object.assign({ l }, screenPoint(l.id))).sort((a, b) => a.y - b.y).forEach(function (it) {
-      const l = it.l;
-      if (!l.w) { l.w = l.chip.offsetWidth; l.h = l.chip.offsetHeight; }
-      const left = it.x > w * 0.62;
-      let cx = Math.max(4, Math.min(w - l.w - 4, left ? it.x - 14 - l.w : it.x + 14)), cy = it.y - l.h / 2;
-      for (let n = 0; n < 12 && placed.some((r) => cx < r.x + r.w && cx + l.w > r.x && cy < r.y + r.h + 2 && cy + l.h + 2 > r.y); n++) cy += l.h + 3;
-      placed.push({ x: cx, y: cy, w: l.w, h: l.h });
-      const hide = it.z > 1;
-      l.dot.style.display = l.chip.style.display = hide ? "none" : "";
-      l.dot.style.transform = "translate(" + it.x + "px," + it.y + "px)";
-      l.chip.style.transform = "translate(" + cx + "px," + cy + "px)";
-      l.line.setAttribute("x1", it.x); l.line.setAttribute("y1", it.y);
-      l.line.setAttribute("x2", left ? cx + l.w : cx); l.line.setAttribute("y2", cy + l.h / 2);
-    });
+    return { x: (v.x + 1) / 2 * root.clientWidth, y: (1 - v.y) / 2 * root.clientHeight };
   }
 
   /* ---- render loop ---- */
-  let carVis = 1, bayVis = 0, explode = 0, last = 0, raf = 0, onScreen = true;
+  let carVis = 1, bayVis = 0, explode = 0, insideVis = 0, insideExplode = 0, last = 0, raf = 0, onScreen = true;
   const io = new IntersectionObserver((e) => { onScreen = e[0].isIntersecting; });
   io.observe(root);
   const approach = (v, g, dt, speed) => v + (g - v) * Math.min(1, dt * speed);
@@ -370,12 +377,16 @@ export function createHologram(root, options = {}) {
     raf = requestAnimationFrame(loop);
     const t = clock.getElapsedTime(), dt = Math.min(0.1, t - last); last = t;
     if (!onScreen) return;
-    const inBay = mode !== "car";
-    // the car body ghosts out in the engine bay and nearly disappears behind a part close-up
-    const carGoal = mode === "part" ? 0.025 : inBay ? 0.1 : 1;
-    carVis = reduce ? carGoal : approach(carVis, carGoal, dt, 3);
-    bayVis = reduce ? (inBay ? 1 : 0) : approach(bayVis, inBay ? 1 : 0, dt, 3);
-    explode = reduce ? (inBay ? 1 : 0) : approach(explode, inBay ? 1 : 0, dt, 2.2);
+    const level = mode === "part" ? levelOf(partId) : mode, focus = mode === "part";
+    // The car ghosts out in the engine views (or disappears if the viewer hid it) and nearly vanishes behind a close-up.
+    // Inside the engine the camera sits close, so the reference car stays fainter there.
+    const carGoal = mode === "car" ? 1 : !showCar ? 0 : focus ? 0.025 : level === "inside" ? 0.05 : 0.14;
+    const go = (v, g, speed) => (reduce ? g : approach(v, g, dt, speed));
+    carVis = go(carVis, carGoal, 3);
+    bayVis = go(bayVis, mode === "car" ? 0 : 1, 3);
+    explode = go(explode, level === "bay" ? 1 : 0, 2.2);
+    insideVis = go(insideVis, level === "inside" ? 1 : 0, 3);
+    insideExplode = go(insideExplode, level === "inside" ? 1 : 0, 1.8);
 
     const pulse = reduce ? 0 : Math.sin(t * 5) * 0.12;
     bodyParts.forEach((o) => setVisibility(o, carVis, 0));
@@ -384,14 +395,22 @@ export function createHologram(root, options = {}) {
       setVisibility(o, id === "engine" ? 1 : carVis, glow, AMBER); // the hood target stays pickable (it's invisible)
     });
     engine.visible = bayVis > 0.02;
+    // engine bay parts: shown in the bay; inside the engine only the block stays, as a see-through shell
     bayPick.forEach(function (o) {
-      const id = o.userData.id, on = mode === "part" ? id === partId : id === hoverId;
+      const id = o.userData.id, on = focus ? id === partId : id === hoverId;
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, explode);
-      setVisibility(o, bayVis * (mode === "part" && !on ? 0.12 : 1), on ? (mode === "part" ? 0.25 + pulse : 0.3) : 0, AMBER);
+      const shell = id === "engine" ? 0.14 : 0;
+      const vis = bayVis * ((1 - insideVis) * (focus && level === "bay" && !on ? 0.12 : 1) + insideVis * shell);
+      setVisibility(o, vis, on && level === "bay" ? (focus ? 0.25 + pulse : 0.3) : 0, AMBER);
     });
     bayDecor.forEach(function (o) {
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, explode);
-      setVisibility(o, bayVis * (mode === "part" ? 0.1 : 1), 0);
+      setVisibility(o, bayVis * (1 - insideVis) * (focus ? 0.1 : 1), 0);
+    });
+    insidePick.forEach(function (o) {
+      const id = o.userData.id, on = focus ? id === partId : id === hoverId;
+      o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, insideExplode);
+      setVisibility(o, bayVis * insideVis * (focus && !on ? 0.12 : 1), on && level === "inside" ? (focus ? 0.25 + pulse : 0.3) : 0, AMBER);
     });
 
     if (flight) {
@@ -407,7 +426,6 @@ export function createHologram(root, options = {}) {
     else camera.clearViewOffset();
     if (flight) camera.lookAt(controls.target); else controls.update();
     renderer.render(scene, camera);
-    placeLabels(mode === "bay" && !flight && bayVis > 0.9);
   }
 
   /* ---- demo tour (landing page) ---- */
@@ -419,10 +437,12 @@ export function createHologram(root, options = {}) {
       token.timers.push(id);
     });
   }
-  async function moveCursor(token, p) {
+  async function moveCursor(token, p, name) {
+    tip.hidden = true;
     cursor.style.opacity = 1;
     cursor.style.transform = "translate(" + p.x + "px," + p.y + "px)";
     await sleep(token, 950);
+    if (name) { tip.textContent = name; tip.style.left = p.x + "px"; tip.style.top = p.y + "px"; tip.hidden = false; await sleep(token, 700); }
     cursor.classList.remove("tap"); void cursor.offsetWidth; cursor.classList.add("tap");
     await sleep(token, 250);
   }
@@ -444,20 +464,29 @@ export function createHologram(root, options = {}) {
       await sleep(token, 2600);
       await moveCursor(token, screenPoint("engine"));
       setMode("bay");
-      say("02 / Explore", "Open the engine bay", BAY.length + " engine parts, pulled apart and labeled.");
-      await sleep(token, 3600);
-      const id = TOUR[n++ % TOUR.length];
-      await moveCursor(token, screenPoint(id));
+      say("02 / Explore", "Open the engine bay", BAY.length + " engine parts, pulled apart. Hover any part for its name.");
+      await sleep(token, 3400);
+      const deep = n % 2 === 1 && INSIDE.length;
+      if (deep) {
+        await moveCursor(token, screenPoint("engine"), "Engine block");
+        setMode("inside");
+        say("03 / Go deeper", "Inside the engine", "Pistons, rings, rods, crankshaft, cams and valves.");
+        await sleep(token, 3600);
+      }
+      const id = deep ? INSIDE_TOUR[Math.floor(n / 2) % INSIDE_TOUR.length] : TOUR[Math.floor(n / 2) % TOUR.length];
+      n++;
+      await moveCursor(token, screenPoint(id), byId[id].name);
+      tip.hidden = true;
       openPart(id);
-      say("03 / Price", "Compare every price", "Economy, OE-quality and genuine OEM for " + byId[id].name.toLowerCase() + ".");
+      say(deep ? "04 / Price" : "03 / Price", "Compare every price", "Economy, OE-quality and genuine OEM for " + byId[id].name.toLowerCase() + ".");
       await sleep(token, 3000);
       const buy = panel.querySelector(".holo-buy-main");
       await moveCursor(token, elementPoint(buy));
       buy.classList.add("pressed");
-      say("04 / Order", "Order the cheapest fit", "Live listings for your year, make, model and engine.");
+      say(deep ? "05 / Order" : "04 / Order", "Order the cheapest fit", "Live listings for your year, make, model and engine.");
       await sleep(token, 2800);
-      setMode("bay");
-      await sleep(token, 1800);
+      setMode(deep ? "inside" : "bay");
+      await sleep(token, 1600);
     }
   }
   function play() {
@@ -481,9 +510,14 @@ export function createHologram(root, options = {}) {
 
   /* ---- public API ---- */
   function setVehicle(v) {
-    const rebuild = String(v.cylinders || "") !== String(vehicle.cylinders || "") || isElectric(v) !== isElectric(vehicle);
+    const newStyle = styleFor(v.bodyClass || v.body) !== style;
+    const newEngine = String(v.cylinders || "") !== String(vehicle.cylinders || "") || String(v.year || "") !== String(vehicle.year || "") || isElectric(v) !== isElectric(vehicle);
     vehicle = Object.assign({}, v);
-    if (rebuild) { if (mode !== "car") setMode("car"); buildBay(); buildLabels(); }
+    if (newStyle || newEngine) {
+      if (mode !== "car") setMode("car");
+      if (newStyle) buildBody();
+      buildBay();
+    }
     if (mode === "part") renderPanel(byId[partId]);
     renderUI();
   }
@@ -500,8 +534,8 @@ export function createHologram(root, options = {}) {
     root.classList.remove("holo", "is-demo", "is-stacked", "is-narrow");
   }
 
+  buildBody();
   buildBay();
-  buildLabels();
   resize();
   renderUI();
   loop();

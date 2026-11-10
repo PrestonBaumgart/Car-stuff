@@ -15,6 +15,7 @@ function toVehicle(car: Car): HologramVehicle {
     engine: [displacement, cylinders && `${cylinders}-cyl`].filter(Boolean).join(" ") || null,
     cylinders,
     fuel,
+    bodyClass: car.bodyClass,
   };
 }
 

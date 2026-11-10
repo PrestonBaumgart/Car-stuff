@@ -104,7 +104,9 @@ Some limits to keep in mind:
 - [ ] Parts search with fitment checks and ranking
 - [ ] DIY job library
 - [x] 3D parts bay in the app: whole car, exploded engine bay, part prices and order links
-- [ ] 3D body-type models: sedan, SUV, truck and coupe
+- [x] Inside the engine: pistons, rings, rods, crankshaft, cams, valves and head gasket
+- [x] Body style from the VIN (sedan or crossover) and inline-4 layouts like Kia's, with timing chains
+- [ ] More body styles: trucks, coupes and minivans
 - [ ] Email and push alerts
 - [ ] Mobile app and OBD-II dongle support
 

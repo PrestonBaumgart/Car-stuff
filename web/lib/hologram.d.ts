@@ -7,6 +7,8 @@ export interface HologramVehicle {
   engine?: string | null;
   cylinders?: string | number | null;
   fuel?: string | null;
+  /** NHTSA body class; SUVs, crossovers, wagons and hatchbacks get the crossover body. */
+  bodyClass?: string | null;
 }
 
 export interface Hologram {
