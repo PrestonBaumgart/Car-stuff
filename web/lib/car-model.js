@@ -77,7 +77,15 @@ export function material(key, extra) {
   m.transparent = true;
   m.side = THREE.DoubleSide;
   m.userData.base = { opacity: m.opacity, emissive: m.emissive.getHex(), emissiveIntensity: m.emissiveIntensity };
+  if (key === "paint") m.userData.paint = true;
   return m;
+}
+
+/** Repaint the body (every "paint" material inside obj). color: hex number or "#rrggbb". */
+export function repaint(obj, color) {
+  obj.traverse(function (m) {
+    if (m.isMesh) [].concat(m.material).forEach((mt) => { if (mt.userData.paint) mt.color.set(color); });
+  });
 }
 
 /** Fade (vis 0–1) and highlight (glow > 0, amber) everything inside obj. */

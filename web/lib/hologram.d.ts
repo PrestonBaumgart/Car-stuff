@@ -13,6 +13,8 @@ export interface HologramVehicle {
 
 export interface Hologram {
   setVehicle(vehicle: HologramVehicle): void;
+  /** Body color as "#rrggbb". */
+  setPaint(color: string): void;
   destroy(): void;
   play?(): void;
   pause?(): void;
@@ -20,5 +22,5 @@ export interface Hologram {
 
 export function createHologram(
   root: HTMLElement,
-  options?: { vehicle?: HologramVehicle; demo?: boolean; onSelect?: (partId: string) => void },
+  options?: { vehicle?: HologramVehicle; demo?: boolean; paint?: string; onSelect?: (partId: string) => void },
 ): Hologram;

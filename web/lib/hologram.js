@@ -4,7 +4,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PARTS, byId, buyLinks, carLabel, esc, money, tiers, wrenches } from "./parts.js";
-import { buildCar, buildEngine, buildGarage, setVisibility, styleFor } from "./car-model.js";
+import { buildCar, buildEngine, buildGarage, repaint, setVisibility, styleFor } from "./car-model.js";
 
 const CSS = `
 .holo { position: relative; overflow: hidden; }
@@ -106,11 +106,13 @@ function isElectric(v) { return /^electric$/i.test(String(v.fuel || "").trim());
  * options.vehicle: { year, make, model, trim, engine, cylinders, fuel, bodyClass }
  * options.demo: play a looping guided tour instead of taking input.
  * options.onSelect(id): called when the viewer opens a part.
+ * options.paint: body color, a hex number or "#rrggbb" (change it later with setPaint).
  */
 export function createHologram(root, options = {}) {
   const demo = !!options.demo;
   const onSelect = options.onSelect || function () {};
   let vehicle = Object.assign({}, options.vehicle);
+  let paint = options.paint || 0x1f3f78;
   injectCss();
   root.classList.add("holo");
   root.classList.toggle("is-demo", demo);
@@ -164,7 +166,8 @@ export function createHologram(root, options = {}) {
   function buildBody() {
     if (car) { scene.remove(car); disposeTree(car); }
     style = styleFor(vehicle.bodyClass || vehicle.body);
-    const built = buildCar({ style, paint: options.paint });
+    const built = buildCar({ style });
+    repaint(built.group, paint);
     car = built.group; bodyParts = built.body; pickables = built.parts;
     bayTarget = built.engineAt.clone().add(new THREE.Vector3(0.3, 0.3, 0));
     car.userData.engineAt = built.engineAt;
@@ -521,6 +524,10 @@ export function createHologram(root, options = {}) {
     if (mode === "part") renderPanel(byId[partId]);
     renderUI();
   }
+  function setPaint(color) {
+    paint = color || 0x1f3f78;
+    if (car) repaint(car, paint);
+  }
   function destroy() {
     pause();
     cancelAnimationFrame(raf);
@@ -541,5 +548,5 @@ export function createHologram(root, options = {}) {
   loop();
   // A demo starts itself unless the viewer prefers reduced motion; then it waits for Play.
   if (demo && !reduce) play();
-  return { setVehicle, destroy, play, pause };
+  return { setVehicle, setPaint, destroy, play, pause };
 }
