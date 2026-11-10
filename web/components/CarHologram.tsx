@@ -17,6 +17,7 @@ function toVehicle(car: Car): HologramVehicle {
     cylinders,
     fuel,
     bodyClass: car.bodyClass,
+    drive: car.drive,
   };
 }
 
@@ -27,7 +28,7 @@ const PAINTS: [string, string][] = [
 ];
 const DEFAULT_PAINT = "#1f3f78";
 
-/** The interactive 3D car: whole car → engine bay → part with prices and order links. Same module the landing page demos. */
+/** The interactive 3D car: engine bay, engine internals, underside and body parts, each with prices and order links. Same module the landing page demos. */
 export function CarHologram({ car }: { car: Car }) {
   const ref = useRef<HTMLDivElement>(null);
   const holo = useRef<Hologram | null>(null);
@@ -65,7 +66,7 @@ export function CarHologram({ car }: { car: Car }) {
       <div style={{ padding: "20px 20px 0" }}>
         <h2>Parts bay</h2>
         <p className="sub">
-          Tap the engine to open the bay, then any part to compare prices and order it. Prices are typical ranges; the buttons open live listings for your car.
+          Use the tabs to open the engine bay, go inside the engine, put the car on the lift to see underneath, or check body panels and lights. Tap any part to compare prices and order it. Prices are typical ranges; the buttons open live listings for your car.
         </p>
         <div className="paints" role="group" aria-label="Paint color">
           <span className="hud">Paint</span>

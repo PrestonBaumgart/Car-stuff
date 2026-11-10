@@ -55,7 +55,7 @@ For now the garage is saved in the browser (`localStorage`), so there's no accou
 | Specs | Oil grade and capacity, coolant, transmission fluid, brake fluid, tire pressure, and bulb and wiper sizes. |
 | DIY guide | Jobs rated by difficulty, with time, tools, torque specs, and shop cost vs. DIY cost. |
 | Known issues | Recalls and the most-reported owner complaints for the year, make and model. |
-| 3D parts bay | Tap any part on the holographic car to see its service info and the cheapest listing that fits. |
+| 3D parts bay | Tabs for the engine bay, inside the engine, the underside (on a lift) and body & lights. Tap any part to see its service info and the cheapest listing that fits. |
 | Alerts | A notice when service is due, a new recall appears, or a part drops in price. |
 
 ## Data sources
@@ -106,6 +106,9 @@ Some limits to keep in mind:
 - [x] 3D parts bay in the app: whole car, exploded engine bay, part prices and order links
 - [x] Inside the engine: pistons, rings, rods, crankshaft, cams, valves and head gasket
 - [x] Body style from the VIN (sedan or crossover) and inline-4 layouts like Kia's, with timing chains
+- [x] Underside on a lift: brakes, suspension, steering, axles, exhaust and fuel system (driveshaft and rear diff on AWD)
+- [x] Body & lights: doors, panels, bumpers, glass, lights, mirrors, wheels and trim, each priced
+- [ ] EV parts: battery pack, drive motor and charge port
 - [ ] More body styles: trucks, coupes and minivans
 - [ ] Email and push alerts
 - [ ] Mobile app and OBD-II dongle support

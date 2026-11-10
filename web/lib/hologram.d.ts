@@ -9,6 +9,8 @@ export interface HologramVehicle {
   fuel?: string | null;
   /** NHTSA body class; SUVs, crossovers, wagons and hatchbacks get the crossover body. */
   bodyClass?: string | null;
+  /** NHTSA drive type. AWD and RWD cars get a driveshaft, rear differential and rear axles. */
+  drive?: string | null;
 }
 
 export interface Hologram {
