@@ -10,7 +10,7 @@ import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.j
 // All are transparent so they can fade; depthWrite is switched off only while faded (see setVisibility).
 const LOOK = {
   paint: { kind: "physical", color: 0x1f3f78, metalness: 0.55, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.08 },
-  glass: { kind: "physical", color: 0x0b1118, metalness: 0.2, roughness: 0.04, clearcoat: 1, opacity: 0.6 },
+  glass: { kind: "physical", color: 0x070b10, metalness: 0.35, roughness: 0.03, clearcoat: 1, opacity: 0.86 },
   trim: { color: 0x15171b, metalness: 0.1, roughness: 0.55 },
   plastic: { color: 0x24272c, metalness: 0.05, roughness: 0.6 },
   rubber: { color: 0x141518, metalness: 0, roughness: 0.92 },
@@ -527,11 +527,33 @@ export function buildCar(options) {
   const lower = loft(range(-S.half, S.half, 150), function (x) {
     const w = S.width * ends(x) + 0.001, b = bot(x), t = topL(x), mid = (b + t) / 2, h = (t - b) / 2, ring = [];
     for (let i = 0; i < N; i++) {
-      const a = (i / N) * Math.PI * 2, ye = sexp(Math.sin(a), 0.3), ze = sexp(Math.cos(a), 0.22);
+      const a = (i / N) * Math.PI * 2, ye = sexp(Math.sin(a), 0.2), ze = sexp(Math.cos(a), 0.15);
       ring.push([mid + h * ye, w * ze * (1 - 0.08 * Math.max(0, ye))]);
     }
     return ring;
   });
+
+  // Lamps, grille, plates and handles are seated on the body surface (found by casting a ray at it)
+  // instead of floating at fixed points, so they sit flush on every body style.
+  const surfaces = [new THREE.Mesh(lower, new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }))]; // the cabin joins below
+  const caster = new THREE.Raycaster();
+  function hitBody(from, dir) {
+    caster.set(new THREE.Vector3().fromArray(from), new THREE.Vector3().fromArray(dir).normalize());
+    const h = caster.intersectObjects(surfaces, false)[0];
+    if (!h) return null;
+    const n = h.face.normal.clone();
+    if (n.dot(caster.ray.direction) > 0) n.negate();
+    return { p: h.point, n };
+  }
+  // Place obj where a ray from `from` along `dir` meets the body, sunk in by `inset`; turn its local +x to face out.
+  function stick(obj, from, dir, inset, orient) {
+    const h = hitBody(from, dir);
+    if (!h) return obj;
+    obj.position.copy(h.p).addScaledVector(h.n, -(inset || 0));
+    if (orient !== false) obj.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), h.n);
+    return obj;
+  }
+  const FRONT = S.half + 1, BACK = -S.half - 1;
 
   // Cut the shell into panels by where each triangle sits: hood, fenders, doors, quarters, bumpers, trunk.
   const [bumpF, bumpR] = S.bumpers;
@@ -588,18 +610,21 @@ export function buildCar(options) {
   });
 
   // greenhouse: painted roof and pillars, then windshield, rear window and door glass
-  const C0 = S.cabin, topC = profile(C0.top), roofY = Math.max.apply(null, C0.top.map((p) => p[1])), cMid = (C0.x0 + C0.x1) / 2;
+  const C0 = S.cabin, cabinW = Math.max(C0.wBottom, S.width - 0.05), topC = profile(C0.top), roofY = Math.max.apply(null, C0.top.map((p) => p[1])), cMid = (C0.x0 + C0.x1) / 2;
   const cabin = loft(range(C0.x0, C0.x1, 90), function (x) {
     const b = C0.base, t = Math.max(b + 0.004, topC(x)), mid = (b + t) / 2, h = (t - b) / 2, ring = [];
     for (let i = 0; i < N; i++) {
       const a = (i / N) * Math.PI * 2, ye = sexp(Math.sin(a), 0.42), y = mid + h * ye;
-      const half = C0.wBottom - C0.wTopDrop * Math.max(0, (y - b) / 0.5);
+      const half = cabinW - C0.wTopDrop * Math.max(0, (y - b) / 0.5);
       ring.push([y, half * sexp(Math.cos(a), 0.3)]);
     }
     return ring;
   });
+  surfaces.push(new THREE.Mesh(cabin, surfaces[0].material));
+  const cabinHalf = (y) => cabinW - C0.wTopDrop * Math.max(0, (y - C0.base) / 0.5);
   const cabinParts = faces(cabin, function (x, y, z, n) {
-    const roof = y > roofY - 0.06, pillar = Math.abs(z) > 0.46 && Math.abs(n.x) > 0.45 && y > C0.base + 0.05;
+    // pillars: the outer edges of the front and rear glass
+    const roof = y > roofY - 0.06, pillar = Math.abs(z) > cabinHalf(y) * 0.86 && Math.abs(n.x) > 0.45 && y > C0.base + 0.05;
     const bPillar = x > C0.bPillar[0] && x < C0.bPillar[1];
     // open tops keep only the windshield and its frame; cargo vans are paneled behind the front doors
     if (S.openTop && x <= cMid) return "drop";
@@ -632,25 +657,34 @@ export function buildCar(options) {
 
   // lights, grille, mirrors, handles, wipers and trim
   panel("grille", group([
-    mesh(rbox(0.05, S.grille.h, S.grille.w, 0.02), "trim", [S.grille.x, S.grille.y, 0]),
-    mesh(rbox(0.05, 0.08, S.intake.w, 0.02), "trim", [S.intake.x, S.intake.y, 0]),
+    stick(mesh(rbox(0.05, S.grille.h, S.grille.w, 0.02), "trim"), [FRONT, S.grille.y, 0], [-1, 0, 0], 0.018, false),
+    stick(mesh(rbox(0.05, 0.08, S.intake.w, 0.02), "trim"), [FRONT, S.intake.y, 0], [-1, 0, 0], 0.018, false),
   ]), [0.26, 0, 0]);
-  deco(mesh(rbox(0.012, 0.1, 0.32, 0.005), "plate", [S.plates.front[0], S.plates.front[1], 0]));
-  deco(mesh(rbox(0.012, 0.1, 0.32, 0.005), "plate", [S.plates.rear[0], S.plates.rear[1], 0]));
+  deco(stick(mesh(rbox(0.012, 0.1, 0.32, 0.005), "plate"), [FRONT, S.plates.front[1], 0], [-1, 0, 0], -0.004));
+  deco(stick(mesh(rbox(0.012, 0.1, 0.32, 0.005), "plate"), [BACK, S.plates.rear[1], 0], [1, 0, 0], -0.004));
   [-1, 1].forEach(function (s) {
     const hl = S.headlight, tl = S.taillight;
-    panel("headlamp", mesh(rbox(hl.size[0], hl.size[1], hl.size[2], 0.025), "headlight", [hl.pos[0], hl.pos[1], s * hl.pos[2]], [0, s * 0.4, -0.25]), [0.2, 0.02, s * 0.06]);
-    panel("taillamp", mesh(rbox(tl.size[0], tl.size[1], tl.size[2], 0.03), "taillight", [tl.pos[0], tl.pos[1], s * tl.pos[2]], [0, -s * tl.rotY, 0]), [-0.2, 0, s * 0.05]);
-    panel("fog", mesh(cyl(0.032, 0.03, 24), "headlight", [S.endStart + S.endLen * 0.85, S.intake.y + 0.035, s * 0.55], RZ), [0.22, 0, 0]);
+    // lamps: thin lenses set into the corners, following the body's curve
+    panel("headlamp", stick(mesh(rbox(0.05, hl.size[1] * 1.4, hl.size[2] * 1.15, 0.02), "headlight"), [FRONT, hl.pos[1], s * hl.pos[2]], [-1, 0, 0], 0.016), [0.2, 0.02, s * 0.06]);
+    panel("taillamp", stick(mesh(rbox(0.05, tl.size[1], tl.size[2], 0.02), "taillight"), [BACK, tl.pos[1], s * tl.pos[2]], [1, 0, 0], 0.016), [-0.2, 0, s * 0.05]);
+    panel("fog", stick(mesh(cyl(0.032, 0.03, 24), "headlight", null, RZ), [FRONT, S.intake.y + 0.035, s * 0.55], [-1, 0, 0], 0.006, false), [0.22, 0, 0]);
     panel("mirrors", group([mesh(rbox(0.04, 0.03, 0.08, 0.01), "trim", [0, -0.02, -s * 0.05]), mesh(rbox(0.11, 0.075, 0.13, 0.03), "paint", [0, 0.01, 0], null, { color: paintColor })], [S.mirror[0], S.mirror[1], s * S.mirror[2]]), [0, 0.06, s * 0.2]);
     // door seams follow the body side
     S.seams.forEach(function (x) {
       const yb = Math.max(bot(x) + 0.03, A + 0.02), yt = topL(x) - 0.03;
       deco(mesh(new THREE.BoxGeometry(0.006, yt - yb, 0.004), "trim", [x, (yb + yt) / 2, s * S.sideZ]));
     });
-    panel("handles", group(S.handles.map((x) => mesh(rbox(0.11, 0.022, 0.02, 0.008), "chrome", [x, S.handleY, s * (S.sideZ + 0.006)]))), [0, 0, s * 0.4]);
+    panel("handles", group(S.handles.map((x) => stick(mesh(rbox(0.11, 0.022, 0.02, 0.008), "chrome"), [x, S.handleY, s * 2], [0, 0, -s], 0.004, false))), [0, 0, s * 0.4]);
     panel("wipers", mesh(rbox(0.025, 0.012, 0.56, 0.005), "trim", [S.wipers[0], S.wipers[1], s * 0.24], [0, 0.18 * s, -0.5]), [0, 0.16, 0]);
-    if (S.rails) panel("rails", mesh(rbox(S.rails.x1 - S.rails.x0, 0.025, 0.035, 0.01), "trim", [(S.rails.x0 + S.rails.x1) / 2, S.rails.y, s * S.rails.z]), [0, 0.2, s * 0.05]);
+    if (S.rails) {
+      // roof rails on short feet, following the roofline
+      const rx0 = S.rails.x0, rx1 = S.rails.x1, ry = Math.max(topC(rx0), topC(rx1)) + 0.035, rz = s * S.rails.z;
+      panel("rails", group([
+        mesh(rbox(rx1 - rx0, 0.022, 0.032, 0.01), "trim", [(rx0 + rx1) / 2, ry, rz]),
+        mesh(rbox(0.07, 0.06, 0.03, 0.008), "trim", [rx0 + 0.06, ry - 0.025, rz]),
+        mesh(rbox(0.07, 0.06, 0.03, 0.008), "trim", [rx1 - 0.06, ry - 0.025, rz]),
+      ]), [0, 0.2, s * 0.05]);
+    }
     // black wheel-arch trim, a crossover cue
     if (S.cladding) panel("flares", group([W, R].map((wx) => mesh(new THREE.TorusGeometry(S.arch + 0.01, 0.03, 8, 32, Math.PI), "trim", [wx, A - 0.06, s * (S.sideZ - 0.005)]))), [0, 0, s * 0.16]);
   });
@@ -679,14 +713,16 @@ export function buildCar(options) {
     under("cv", group([rod([x, A, s * 0.13], [x, A, s * 0.6], 0.017, "steel"), boot([x, A, s * 0.19]), boot([x, A, s * 0.54])]), [0, -0.16, 0]);
   }
   // front: MacPherson struts, coil springs, lower control arms, tie rods, steering rack, sway bar, subframe
+  // strut tops stay under the fender line so they never poke through the hood
+  const strutTop = Math.min(A + 0.62, topL(W) - 0.1);
   [-1, 1].forEach(function (s) {
     const sx = W - 0.03, sz = s * 0.6;
     under("struts", group([
       rod([W, A + 0.06, sz], [sx, A + 0.34, sz], 0.038, "darkSteel"),
-      rod([sx, A + 0.34, sz], [sx - 0.015, A + 0.62, sz], 0.012, "chrome"),
-      mesh(cyl(0.075, 0.03, 32), "rubber", [sx - 0.015, A + 0.62, sz]),
+      rod([sx, A + 0.34, sz], [sx - 0.015, strutTop, sz], 0.012, "chrome"),
+      mesh(cyl(0.075, 0.03, 32), "rubber", [sx - 0.015, strutTop, sz]),
     ]), [0, -0.1, s * 0.16]);
-    under("springs", coil([sx - 0.008, sz], A + 0.36, A + 0.58, 0.07, 5), [0, -0.05, s * 0.28]);
+    under("springs", coil([sx - 0.008, sz], A + 0.36, strutTop - 0.04, 0.07, 5), [0, -0.05, s * 0.28]);
     under("carms", group([
       rod([W, A - 0.1, s * 0.6], [W + 0.18, A - 0.08, s * 0.26], 0.02, "darkSteel"),
       rod([W, A - 0.1, s * 0.6], [W - 0.24, A - 0.08, s * 0.26], 0.02, "darkSteel"),
@@ -804,9 +840,11 @@ export function buildCar(options) {
       mesh(tube([[tx + 0.16, ty + 0.1, tz2 + 0.08], [tx + 0.3, py + 0.03, -0.55], [tx + 0.39, py, -0.62]], 0.005, false, 24), "hose"),
     ]), [0, -0.08, 0]);
     under("evap", mesh(rbox(0.22, 0.1, 0.12, 0.02), "plastic", [tx + 0.5, py, -0.62]), [0, -0.14, -0.05]);
-    const fdX = R - 0.28, fdY = topL(fdX) - 0.22, fdZ = -(S.sideZ - 0.02);
+    // fuel door behind the rear wheel; on a pickup, low on the bed side so the neck stays under the bed floor
+    const fdX = S.bed ? R + 0.62 : R - 0.28, fdZ = -(S.sideZ - 0.02);
+    const fdY = S.bed ? topL((S.bed.x0 + S.bed.x1) / 2) - 0.47 : topL(fdX) - 0.22;
     under("fneck", group([
-      mesh(tube([[tx - 0.26, ty + 0.02, tz2 - 0.22], [R + 0.25, ty + 0.12, -0.7], [fdX + 0.05, fdY - 0.06, fdZ + 0.06], [fdX, fdY, fdZ]], 0.022, false, 40), "darkSteel"),
+      mesh(tube([[tx - 0.26, ty + 0.02, tz2 - 0.22], [(tx - 0.26 + fdX) / 2, ty + 0.12, -0.7], [fdX + 0.05, fdY - 0.06, fdZ + 0.06], [fdX, fdY, fdZ]], 0.022, false, 40), "darkSteel"),
       mesh(cyl(0.035, 0.02, 24), "trim", [fdX, fdY, fdZ + 0.01], RX),
     ]), [0, 0, -0.14]);
   }
