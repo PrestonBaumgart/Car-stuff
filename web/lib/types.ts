@@ -40,6 +40,21 @@ export interface Car extends Vehicle {
   odometer: OdometerEntry[];
   serviceLog: ServiceEntry[];
   specs: Specs;
-  /** Body color for the 3D model, "#rrggbb". */
-  paint?: string;
+  insurance?: Insurance;
+  registration?: Registration;
+}
+
+/** Owner-entered insurance details. Saved only in this browser. */
+export interface Insurance {
+  company?: string;
+  policy?: string;
+  phone?: string;
+  expires?: string; // ISO date, yyyy-mm-dd
+}
+
+/** Owner-entered registration (tag) details. Saved only in this browser. */
+export interface Registration {
+  plate?: string;
+  state?: string;
+  expires?: string; // ISO date, yyyy-mm-dd
 }

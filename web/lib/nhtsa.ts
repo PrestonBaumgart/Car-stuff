@@ -1,5 +1,6 @@
 // NHTSA client for the app. Free public APIs, no key needed, CORS-enabled.
 // Same logic as src/lib/nhtsa.js (used by the landing page), typed for the app.
+import { cleanComplaint, topSymptoms } from "./problem-guide";
 import type { Vehicle } from "./types";
 
 const VPIC = "https://vpic.nhtsa.dot.gov/api/vehicles";
@@ -85,25 +86,69 @@ export async function getRecalls(vehicle: YMM): Promise<Recall[]> {
   }));
 }
 
-export interface ComplaintSummary {
-  total: number;
-  topComponents: { component: string; count: number }[];
+export interface ComplaintDetail {
+  component: string;
+  count: number;
+  crashes: number;
+  fires: number;
+  injuries: number;
+  /** Most-mentioned symptoms in this component's complaints, with how many complaints mention each. */
+  symptoms: { label: string; count: number }[];
+  /** Recent owner reports, newest first, cleaned for display. */
+  reports: { date: string; text: string }[];
 }
 
-/** Owner complaints, tallied by component to surface common problems. */
+export interface ComplaintSummary {
+  total: number;
+  topComponents: ComplaintDetail[];
+}
+
+interface RawComplaint {
+  components?: string;
+  summary?: string;
+  dateOfIncident?: string;
+  dateComplaintFiled?: string;
+  crash?: boolean;
+  fire?: boolean;
+  numberOfInjuries?: number;
+}
+
+/** NHTSA complaint dates are mm/dd/yyyy; returns yyyy-mm-dd (or "" if unparseable). */
+function complaintDate(raw?: string) {
+  const m = String(raw || "").match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[1]}-${m[2]}` : "";
+}
+
+/** Owner complaints, grouped by component: counts, symptoms and sample reports for the common problems. */
 export async function getComplaints(vehicle: YMM, top = 6): Promise<ComplaintSummary> {
   const data = await getJson(`${SAFETY}/complaints/complaintsByVehicle?${ymm(vehicle)}`);
-  const results: { components?: string }[] = data.results || [];
-  const tally: Record<string, number> = {};
+  const results: RawComplaint[] = data.results || [];
+  const groups: Record<string, RawComplaint[]> = {};
   for (const c of results) {
-    for (const comp of String(c.components || "UNKNOWN").split(",")) {
-      const k = comp.trim();
-      tally[k] = (tally[k] || 0) + 1;
+    for (const comp of String(c.components || "UNKNOWN OR OTHER").split(",")) {
+      const k = comp.trim() || "UNKNOWN OR OTHER";
+      (groups[k] = groups[k] || []).push(c);
     }
   }
-  const topComponents = Object.entries(tally)
-    .sort((a, b) => b[1] - a[1])
+  const topComponents = Object.entries(groups)
+    .sort((a, b) => b[1].length - a[1].length)
     .slice(0, top)
-    .map(([component, count]) => ({ component, count }));
+    .map(([component, list]) => {
+      const texts = list.map((c) => cleanComplaint(String(c.summary || "")));
+      const reports = list
+        .map((c, i) => ({ date: complaintDate(c.dateOfIncident) || complaintDate(c.dateComplaintFiled), text: texts[i] }))
+        .filter((r) => r.text.length > 40)
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 5);
+      return {
+        component,
+        count: list.length,
+        crashes: list.filter((c) => c.crash).length,
+        fires: list.filter((c) => c.fire).length,
+        injuries: list.reduce((n, c) => n + (c.numberOfInjuries || 0), 0),
+        symptoms: topSymptoms(texts),
+        reports,
+      };
+    });
   return { total: data.count ?? results.length, topComponents };
 }

@@ -38,7 +38,23 @@ const CSS = `
 .holo-crumbs button { flex: none; font: inherit; letter-spacing: inherit; text-transform: inherit; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 6px 10px; cursor: pointer; }
 .holo-crumbs button:hover { border-color: var(--holo); }
 .holo-crumbs button.here { color: #021018; background: var(--amber); border-color: var(--amber); font-weight: 600; }
-.holo-cartoggle { position: absolute; right: 14px; top: 76px; z-index: 4; font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; font-size: 12px; letter-spacing: .12em; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 5px 9px; cursor: pointer; }
+.holo-ctrls { position: absolute; right: 14px; top: 76px; z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
+.holo-ctrls > * { pointer-events: auto; }
+.holo-healthtoggle { font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; font-size: 12px; letter-spacing: .12em; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 5px 9px; cursor: pointer; }
+.holo-healthtoggle:hover { border-color: var(--holo); }
+.holo-healthtoggle[aria-pressed="false"] { color: var(--steel); }
+.holo-legend { display: grid; gap: 3px; background: rgba(3,6,12,.82); border: 1px solid var(--line); padding: 7px 9px; font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; font-size: 10px; letter-spacing: .1em; color: var(--ink); }
+.holo-legend span, .holo-panel .health, .holo-strip .dot { display: inline-flex; align-items: center; gap: 6px; }
+.holo .hdot { width: 9px; height: 9px; border-radius: 50%; flex: none; display: inline-block; }
+.holo .h-good .hdot, .holo .hdot.h-good { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+.holo .h-watch .hdot, .holo .hdot.h-watch { background: #ff8a1f; box-shadow: 0 0 6px #ff8a1f; }
+.holo .h-replace .hdot, .holo .hdot.h-replace { background: #ef2b3a; box-shadow: 0 0 6px #ef2b3a; }
+.holo .h-unknown .hdot, .holo .hdot.h-unknown { background: #8b95a5; }
+.holo-panel .health { margin-top: 10px; font-size: 13px; color: var(--ink); align-items: flex-start; }
+.holo-panel .health b { font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; letter-spacing: .1em; font-size: 11px; }
+.holo-panel .health .hdot { margin-top: 3px; }
+.holo.is-narrow .holo-legend { font-size: 9px; padding: 5px 7px; }
+.holo-cartoggle { z-index: 4; font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; font-size: 12px; letter-spacing: .12em; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 5px 9px; cursor: pointer; }
 .holo-cartoggle:hover { border-color: var(--holo); }
 .holo-cartoggle[aria-pressed="false"] { color: var(--steel); }
 .holo-strip { position: absolute; left: 0; right: 0; bottom: 0; z-index: 4; display: flex; gap: 6px; overflow-x: auto; padding: 18px 14px 12px; background: linear-gradient(transparent, rgba(7,11,20,.92) 45%); scrollbar-width: thin; }
@@ -91,6 +107,13 @@ const CSS = `
 const CURSOR = '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 2 L3 19 L8 14.5 L11.5 22 L14.5 20.6 L11 13.3 L17.5 13.3 Z" fill="#e8eefb" stroke="#070b14" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 
 const AMBER = 0xffb02e;
+// Part health colors (see web/lib/part-health.ts) and the viewer's on/off choice, remembered in this browser.
+const HEALTH_COLOR = { good: 0x22c55e, watch: 0xff8a1f, replace: 0xef2b3a, unknown: 0x8b95a5 };
+const HEALTH_LABEL = { good: "Recently serviced", watch: "Getting old: take a look", replace: "Replace soon", unknown: "No record" };
+const HEALTH_PREF = "vinsight.healthColors";
+function readHealthPref() {
+  try { return localStorage.getItem(HEALTH_PREF) !== "off"; } catch (e) { return true; }
+}
 const CAR_T = new THREE.Vector3(0.1, 0.7, 0);
 const CAR_DIR = new THREE.Vector3(5.4, 3.1, 5.6).sub(CAR_T).normalize();
 const BAY_DIR = new THREE.Vector3(1.0, 0.9, 0.8).normalize();
@@ -127,12 +150,16 @@ function isElectric(v) { return /^electric$/i.test(String(v.fuel || "").trim());
  * options.paint: body color, a hex number or "#rrggbb" (change it later with setPaint).
  * options.partsUrl: folder holding the part .glb files (ending in "/"), and real car bodies under "cars/";
  *   without it every part and body stays code-built.
+ * options.health: { partId: { status: "good" | "watch" | "replace" | "unknown", note } } from the service log
+ *   (change it later with setHealth). Parts are tinted by it while the viewer has health colors on.
  */
 export function createHologram(root, options = {}) {
   const demo = !!options.demo;
   const onSelect = options.onSelect || function () {};
   let vehicle = Object.assign({}, options.vehicle);
   let paint = options.paint || 0x1f3f78;
+  let health = options.health || null;
+  let healthOn = readHealthPref();
   injectCss();
   root.classList.add("holo");
   root.classList.toggle("is-demo", demo);
@@ -141,7 +168,9 @@ export function createHologram(root, options = {}) {
     '<div class="holo-hud"><span>Scan <span class="v" data-car></span></span><span><span class="v" data-count></span> parts mapped</span></div>' +
     '<nav class="holo-crumbs" aria-label="3D views"></nav>' +
     '<div class="holo-hint"></div>' +
-    '<button type="button" class="holo-cartoggle" aria-pressed="true" hidden>Car: shown</button>' +
+    '<div class="holo-ctrls"><button type="button" class="holo-cartoggle" aria-pressed="true" hidden>Car: shown</button>' +
+    '<button type="button" class="holo-healthtoggle" aria-pressed="true" hidden>Health: on</button>' +
+    '<div class="holo-legend" hidden>' + ["good", "watch", "replace", "unknown"].map((h) => '<span class="h-' + h + '"><i class="hdot"></i>' + HEALTH_LABEL[h] + "</span>").join("") + "</div></div>" +
     '<div class="holo-strip" role="group" aria-label="Engine bay parts" hidden></div>' +
     '<aside class="holo-panel" aria-label="Part details" hidden></aside>' +
     '<div class="holo-tip" hidden></div>' +
@@ -150,6 +179,7 @@ export function createHologram(root, options = {}) {
   const $ = (s) => root.querySelector(s);
   const canvas = $(".holo-canvas"), crumbs = $(".holo-crumbs"), hint = $(".holo-hint");
   const strip = $(".holo-strip"), panel = $(".holo-panel"), tip = $(".holo-tip"), carToggle = $(".holo-cartoggle");
+  const healthToggle = $(".holo-healthtoggle"), legend = $(".holo-legend");
   canvas.setAttribute("aria-label", demo
     ? "Demo: the 3D car opens its engine bay, goes up on the lift, zooms into a part and shows its prices."
     : "Interactive 3D model of your car. Use the view tabs and part buttons for keyboard access.");
@@ -233,7 +263,8 @@ export function createHologram(root, options = {}) {
 
   function renderStrip() {
     const level = levelNow(), list = LISTS()[level];
-    const btn = (p) => '<button type="button" data-id="' + p.id + '">' + esc(p.name) + "</button>";
+    const dot = (p) => (health && healthOn ? '<i class="hdot h-' + healthFor(p.id).status + '"></i> ' : "");
+    const btn = (p) => '<button type="button" data-id="' + p.id + '">' + dot(p) + esc(p.name) + "</button>";
     strip.setAttribute("aria-label", LEVEL_NAME[level] + " parts");
     if (level === "under" || level === "body") {
       // grouped by system: Braking, Suspension, Exhaust, Fuel…
@@ -251,6 +282,13 @@ export function createHologram(root, options = {}) {
     if (b.dataset.go) setMode(b.dataset.go); else openPart(b.dataset.id, true);
   });
   carToggle.addEventListener("click", function () { showCar = !showCar; renderUI(); });
+  healthToggle.addEventListener("click", function () {
+    healthOn = !healthOn;
+    try { localStorage.setItem(HEALTH_PREF, healthOn ? "on" : "off"); } catch (e) { /* storage blocked: still toggles for this visit */ }
+    renderUI();
+    if (mode === "part") renderPanel(byId[partId]);
+  });
+  const healthFor = (id) => (health && health[id]) || { status: "unknown", note: "" };
 
   function renderPanel(p) {
     const save = Math.max(0, p.shop - p.diy);
@@ -258,6 +296,7 @@ export function createHologram(root, options = {}) {
       '<button type="button" class="back" data-back>‹ ' + LEVEL_NAME[levelOf(p.id)] + "</button>" +
       '<h3 tabindex="-1">' + esc(p.name) + "</h3>" +
       '<div class="sys">' + esc(p.sys) + " · fits " + esc(carLabel(vehicle)) + (vehicle.engine ? " " + esc(vehicle.engine) : "") + "</div>" +
+      (health ? healthLine(p.id) : "") +
       tiers(p) +
       '<div class="buy">' + buyLinks(p, vehicle, { primary: "holo-btn warm holo-buy-main", secondary: "holo-btn ghost" }) + "</div>" +
       '<div class="minis">' +
@@ -266,6 +305,11 @@ export function createHologram(root, options = {}) {
         '<div><span class="hud">You save</span><br><span class="save">' + money(save) + "</span></div>" +
       "</div>" +
       "<p>" + esc(p.tip) + "</p>";
+  }
+  function healthLine(id) {
+    const h = healthFor(id);
+    const note = h.note || "No service on record. Log it in the service queue (or scan a receipt) to track this part.";
+    return '<div class="health h-' + h.status + '"><i class="hdot"></i><span><b>' + HEALTH_LABEL[h.status] + "</b><br>" + esc(note) + "</span></div>";
   }
   panel.addEventListener("click", function (e) { if (e.target.closest("[data-back]")) setMode(levelOf(partId)); });
 
@@ -285,6 +329,11 @@ export function createHologram(root, options = {}) {
     carToggle.setAttribute("aria-pressed", String(showCar));
     carToggle.textContent = showCar ? "Car: shown" : "Car: hidden";
     carToggle.title = showCar ? "Fade the car out" : "Show the car for reference";
+    healthToggle.hidden = demo || !health || mode === "part";
+    healthToggle.setAttribute("aria-pressed", String(healthOn));
+    healthToggle.textContent = healthOn ? "Health: on" : "Health: off";
+    healthToggle.title = healthOn ? "Turn off part health colors" : "Color parts by how recently they were serviced";
+    legend.hidden = healthToggle.hidden || !healthOn;
     hint.textContent = "Drag to orbit · Tap any part · Pick a view above";
   }
   crumbs.addEventListener("click", function (e) { const b = e.target.closest("[data-go]"); if (b) setMode(b.dataset.go); });
@@ -473,6 +522,13 @@ export function createHologram(root, options = {}) {
     // hot: the part under the pointer (in this view or on the whole car) or the part in close-up
     const hot = (id, lvl) => (focus ? level === lvl && id === partId : id === hoverId && (mode === lvl || mode === "car"));
     const glow = (on) => (on ? (focus ? 0.25 + pulse : 0.3) : 0);
+    // Health colors: green/orange/red by service record, gray when unknown. Hover and close-up stay amber.
+    const tinted = !!(health && healthOn);
+    const paintBy = (o, vis, id, on, always) => {
+      if (on || !tinted || !(always || health[id])) return setVisibility(o, vis, glow(on), AMBER);
+      const st = healthFor(id).status;
+      setVisibility(o, vis, st === "unknown" ? 0.14 : 0.55, HEALTH_COLOR[st]);
+    };
     // a real body stands in for the code-built shell, which stays only as invisible pick targets
     bodyParts.forEach((o) => setVisibility(o, realBody ? 0 : shell, 0));
     if (realBody) setVisibility(realBody, shell, 0);
@@ -495,7 +551,7 @@ export function createHologram(root, options = {}) {
           showCode(o, o.userData.codeOn);
         }
       }
-      setVisibility(o, vis, glow(on), AMBER);
+      paintBy(o, vis, id, on, false); // body panels only when the log covers them (tires, wipers)
     });
     chassis.forEach(function (o) {
       const id = o.userData.id, on = hot(id, "under");
@@ -503,7 +559,7 @@ export function createHologram(root, options = {}) {
       let vis = level === "under" ? (focus && !on ? 0.15 : 1) : shell;
       // the code-built underside would poke through a real body: it only shows from underneath
       if (realBody && level !== "under" && !on) vis = 0;
-      setVisibility(o, vis, glow(on), AMBER);
+      paintBy(o, vis, id, on, true);
     });
     engine.visible = bayVis > 0.02;
     // engine bay parts: pulled apart in the bay; a see-through shell inside the engine; dimmed and assembled from underneath
@@ -512,7 +568,7 @@ export function createHologram(root, options = {}) {
       const id = o.userData.id, on = hot(id, "bay");
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, explode);
       const vis = bayVis * fromBelow * ((1 - insideVis) * (focus && level === "bay" && !on ? 0.12 : 1) + insideVis * (id === "engine" ? 0.14 : 0));
-      setVisibility(o, vis, glow(on), AMBER);
+      paintBy(o, vis, id, on, true);
     });
     bayDecor.forEach(function (o) {
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, explode);
@@ -521,7 +577,7 @@ export function createHologram(root, options = {}) {
     insidePick.forEach(function (o) {
       const id = o.userData.id, on = hot(id, "inside");
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, insideExplode);
-      setVisibility(o, bayVis * insideVis * (focus && !on ? 0.12 : 1), glow(on), AMBER);
+      paintBy(o, bayVis * insideVis * (focus && !on ? 0.12 : 1), id, on, true);
     });
 
     if (flight) {
@@ -647,6 +703,11 @@ export function createHologram(root, options = {}) {
     if (mode === "part") renderPanel(byId[partId]);
     renderUI();
   }
+  function setHealth(map) {
+    health = map || null;
+    renderUI();
+    if (mode === "part") renderPanel(byId[partId]);
+  }
   function setPaint(color) {
     paint = color || 0x1f3f78;
     if (car) repaint(car, paint);
@@ -671,5 +732,5 @@ export function createHologram(root, options = {}) {
   loop();
   // A demo starts itself unless the viewer prefers reduced motion; then it waits for Play.
   if (demo && !reduce) play();
-  return { setVehicle, setPaint, destroy, play, pause };
+  return { setVehicle, setPaint, setHealth, destroy, play, pause };
 }
