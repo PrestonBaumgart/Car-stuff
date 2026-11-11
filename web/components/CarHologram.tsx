@@ -18,6 +18,8 @@ function toVehicle(car: Car): HologramVehicle {
     fuel,
     bodyClass: car.bodyClass,
     drive: car.drive,
+    doors: car.doors ?? null,
+    wheelbase: car.wheelbase ?? null,
   };
 }
 

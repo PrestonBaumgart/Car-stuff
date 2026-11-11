@@ -109,7 +109,7 @@ Some limits to keep in mind:
 - [x] Underside on a lift: brakes, suspension, steering, axles, exhaust and fuel system (driveshaft and rear diff on AWD)
 - [x] Body & lights: doors, panels, bumpers, glass, lights, mirrors, wheels and trim, each priced
 - [ ] EV parts: battery pack, drive motor and charge port
-- [ ] More body styles: trucks, coupes and minivans
+- [x] A body for every NHTSA passenger body class: sedan, coupe, convertible, roadster, 3- and 5-door hatchback, wagon, compact and midsize SUV, minivan, cargo van, pickup and limousine (door count and wheelbase from the VIN pick the closer variant)
 - [ ] Email and push alerts
 - [ ] Mobile app and OBD-II dongle support
 

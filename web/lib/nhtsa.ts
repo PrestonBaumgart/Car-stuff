@@ -50,6 +50,8 @@ export async function decodeVin(vin: string): Promise<Vehicle> {
     },
     drive: d.DriveType || null,
     transmission: d.TransmissionStyle || null,
+    doors: d.Doors || null,
+    wheelbase: d.WheelBaseShort || null,
   };
 }
 

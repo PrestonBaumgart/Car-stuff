@@ -11,6 +11,9 @@ export interface HologramVehicle {
   bodyClass?: string | null;
   /** NHTSA drive type. AWD and RWD cars get a driveshaft, rear differential and rear axles. */
   drive?: string | null;
+  /** NHTSA door count and wheelbase (inches): pick 2- vs 4-door bodies and compact vs midsize SUVs. */
+  doors?: string | number | null;
+  wheelbase?: string | number | null;
 }
 
 export interface Hologram {

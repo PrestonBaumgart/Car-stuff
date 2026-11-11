@@ -512,7 +512,7 @@ import { createHologram } from "./web/lib/hologram.js";
       if (!d.Make) { setSource("NHTSA couldn't match this VIN. Double-check the characters.", "bad"); return; }
       var disp = d.DisplacementL ? (Math.round(parseFloat(d.DisplacementL) * 10) / 10).toFixed(1) + "L" : "";
       var cyl = d.EngineCylinders ? (d.EngineConfiguration && /V/.test(d.EngineConfiguration) ? "V" : "I") + d.EngineCylinders : "";
-      vehicle = { vin: v, year: d.ModelYear, make: title(d.Make), model: d.Model, trim: d.Trim, engine: [disp, cyl].filter(Boolean).join(" "), cylinders: d.EngineCylinders, fuel: d.FuelTypePrimary, trans: d.TransmissionStyle, body: d.BodyClass, plant: title(d.PlantCity) };
+      vehicle = { vin: v, year: d.ModelYear, make: title(d.Make), model: d.Model, trim: d.Trim, engine: [disp, cyl].filter(Boolean).join(" "), cylinders: d.EngineCylinders, fuel: d.FuelTypePrimary, trans: d.TransmissionStyle, body: d.BodyClass, doors: d.Doors, wheelbase: d.WheelBaseShort, drive: d.DriveType, plant: title(d.PlantCity) };
       applyVehicle();
       setSource("Live from NHTSA: " + carLabel() + (vehicle.engine ? " · " + vehicle.engine : ""), "ok");
       loadLiveIssues();

@@ -240,12 +240,199 @@ const STYLES = {
     bumpers: [0.78, 0.66], brake3: [-1.99, 1.47],
     rails: { y: 1.665, x0: -1.75, x1: 0.05, z: 0.56 }, cladding: true,
   },
+  // Midsize / three-row SUV (Sorento, Telluride, Highlander): longer, taller, bigger wheels.
+  suv: {
+    half: 2.42, wheelX: 1.42, axle: 0.4, wheelScale: 1.18, width: 0.95, arch: 0.52, endStart: 2.15, endLen: 0.27,
+    top: [[-2.42, 0.82], [-2.37, 1.12], [-2.25, 1.2], [-1.6, 1.22], [0.8, 1.19], [1.45, 1.16], [2.05, 1.1], [2.33, 0.98], [2.42, 0.76]],
+    bot: [[-2.42, 0.58], [-2.25, 0.42], [2.2, 0.42], [2.42, 0.58]],
+    cabin: { x0: -2.32, x1: 0.85, base: 1.15, wBottom: 0.86, wTopDrop: 0.2, bPillar: [-0.37, -0.27],
+      top: [[-2.32, 1.2], [-2.27, 1.62], [-2.12, 1.74], [-0.2, 1.77], [0.2, 1.74], [0.85, 1.17]] },
+    interior: { size: [2.0, 0.34, 1.35], pos: [-0.75, 1.33, 0] },
+    grille: { x: 2.385, y: 0.86, h: 0.2, w: 0.95 }, intake: { x: 2.38, y: 0.64, w: 1.2 },
+    plates: { front: [2.42, 0.68], rear: [-2.42, 0.9] },
+    headlight: { pos: [2.3, 1.03, 0.66], size: [0.12, 0.08, 0.32] },
+    taillight: { pos: [-2.36, 1.3, 0.74], size: [0.08, 0.3, 0.12], rotY: 0.2 },
+    mirror: [0.68, 1.27, 0.97], seams: [0.78, -0.32, -1.45], handles: [0.28, -0.85], handleY: 1.11, sideZ: 0.936,
+    wipers: [0.83, 1.2], exhaust: [-2.41, 0.5, 0.55],
+    engineAt: [1.42, 0.96, 0], hood: { pos: [1.6, 1.16, 0], size: [1.3, 0.14, 1.65] },
+    bumpers: [0.92, 0.78], brake3: [-2.26, 1.64],
+    rails: { y: 1.795, x0: -1.95, x1: 0.0, z: 0.62 }, cladding: true, view: [0.85, 1.08],
+  },
+  // Five-door hatchback (Forte5, Rio 5-door, Golf).
+  hatchback: {
+    half: 2.15, wheelX: 1.35, axle: 0.34, wheelScale: 1, width: 0.88, arch: 0.43, endStart: 1.9, endLen: 0.25,
+    top: [[-2.15, 0.62], [-2.1, 0.88], [-2.0, 0.97], [-1.6, 1.0], [0.8, 0.98], [1.35, 0.95], [1.85, 0.9], [2.06, 0.78], [2.15, 0.58]],
+    bot: [[-2.15, 0.46], [-1.97, 0.31], [1.92, 0.29], [2.15, 0.44]],
+    cabin: { x0: -2.0, x1: 0.85, base: 0.95, wBottom: 0.78, wTopDrop: 0.2, bPillar: [-0.45, -0.35],
+      top: [[-2.0, 0.99], [-1.9, 1.3], [-1.7, 1.44], [-0.3, 1.46], [0.1, 1.44], [0.85, 0.97]] },
+    interior: { size: [1.5, 0.3, 1.2], pos: [-0.6, 1.1, 0] },
+    grille: { x: 2.11, y: 0.62, h: 0.14, w: 0.72 }, intake: { x: 2.1, y: 0.45, w: 1.05 },
+    plates: { front: [2.145, 0.5], rear: [-2.145, 0.7] },
+    headlight: { pos: [2.03, 0.8, 0.58], size: [0.12, 0.07, 0.3] },
+    taillight: { pos: [-2.08, 1.0, 0.62], size: [0.08, 0.14, 0.2], rotY: 0.25 },
+    mirror: [0.72, 1.05, 0.87], seams: [0.8, -0.4, -1.45], handles: [0.28, -0.85], handleY: 0.87, sideZ: 0.866,
+    wipers: [0.83, 1.0], exhaust: [-2.13, 0.36, 0.5],
+    engineAt: [1.35, 0.78, 0], hood: { pos: [1.48, 0.95, 0], size: [1.15, 0.14, 1.5] },
+    bumpers: [0.68, 0.58], brake3: [-1.88, 1.33],
+    rails: null, cladding: false,
+  },
+  // Station wagon: sedan length with the roof carried to an upright tailgate.
+  wagon: {
+    half: 2.35, wheelX: 1.4, axle: 0.35, wheelScale: 1.02, width: 0.89, arch: 0.44, endStart: 2.1, endLen: 0.25,
+    top: [[-2.35, 0.62], [-2.3, 0.88], [-2.2, 0.98], [-1.6, 1.0], [0.9, 0.98], [1.5, 0.95], [2.0, 0.9], [2.26, 0.78], [2.35, 0.58]],
+    bot: [[-2.35, 0.47], [-2.17, 0.32], [2.12, 0.3], [2.35, 0.44]],
+    cabin: { x0: -2.18, x1: 0.95, base: 0.95, wBottom: 0.79, wTopDrop: 0.2, bPillar: [-0.37, -0.27],
+      top: [[-2.18, 1.0], [-2.12, 1.32], [-1.95, 1.42], [-0.3, 1.45], [0.1, 1.43], [0.95, 0.97]] },
+    interior: { size: [1.8, 0.3, 1.2], pos: [-0.7, 1.1, 0] },
+    grille: { x: 2.295, y: 0.62, h: 0.15, w: 0.74 }, intake: { x: 2.29, y: 0.45, w: 1.1 },
+    plates: { front: [2.335, 0.5], rear: [-2.35, 0.68] },
+    headlight: { pos: [2.22, 0.8, 0.58], size: [0.12, 0.07, 0.3] },
+    taillight: { pos: [-2.28, 0.95, 0.6], size: [0.08, 0.16, 0.22], rotY: 0.25 },
+    mirror: [0.82, 1.05, 0.87], seams: [0.88, -0.32, -1.38], handles: [0.36, -0.8], handleY: 0.87, sideZ: 0.876,
+    wipers: [0.93, 1.0], exhaust: [-2.33, 0.37, 0.5],
+    engineAt: [1.4, 0.78, 0], hood: { pos: [1.55, 0.95, 0], size: [1.25, 0.14, 1.5] },
+    bumpers: [0.68, 0.58], brake3: [-2.12, 1.33],
+    rails: { y: 1.475, x0: -1.9, x1: -0.1, z: 0.56 }, cladding: false,
+  },
+  // Two-door coupe: shorter cabin, lower roof, one long door.
+  coupe: {
+    half: 2.25, wheelX: 1.38, axle: 0.34, wheelScale: 1, width: 0.89, arch: 0.43, endStart: 2.0, endLen: 0.25,
+    top: [[-2.25, 0.6], [-2.17, 0.83], [-1.95, 0.95], [-1.5, 0.99], [-1.15, 0.98], [0.85, 0.96], [1.45, 0.93], [1.95, 0.88], [2.17, 0.76], [2.25, 0.56]],
+    bot: [[-2.25, 0.45], [-2.07, 0.3], [2.02, 0.28], [2.25, 0.43]],
+    cabin: { x0: -1.45, x1: 0.9, base: 0.93, wBottom: 0.78, wTopDrop: 0.24, bPillar: [0, 0],
+      top: [[-1.45, 0.97], [-0.85, 1.26], [-0.45, 1.33], [0.05, 1.33], [0.9, 0.95]] },
+    interior: { size: [1.2, 0.28, 1.2], pos: [-0.4, 1.07, 0] },
+    grille: { x: 2.195, y: 0.6, h: 0.14, w: 0.72 }, intake: { x: 2.19, y: 0.44, w: 1.08 },
+    plates: { front: [2.235, 0.49], rear: [-2.24, 0.6] },
+    headlight: { pos: [2.12, 0.78, 0.58], size: [0.12, 0.07, 0.3] },
+    taillight: { pos: [-2.15, 0.88, 0.6], size: [0.1, 0.08, 0.32], rotY: 0.35 },
+    mirror: [0.75, 1.02, 0.88], seams: [0.85, -0.55], handles: [-0.38], handleY: 0.85, sideZ: 0.876,
+    wipers: [0.88, 0.98], exhaust: [-2.23, 0.35, 0.5],
+    engineAt: [1.38, 0.76, 0], hood: { pos: [1.5, 0.93, 0], size: [1.25, 0.14, 1.5] },
+    bumpers: [0.66, 0.55], brake3: [-1.9, 0.98],
+    rails: null, cladding: false,
+  },
+  // Long-wheelbase minivan (Carnival, Odyssey, Sienna): sloped nose, tall flat roof, sliding rear door.
+  minivan: {
+    half: 2.57, wheelX: 1.52, axle: 0.37, wheelScale: 1.1, width: 0.99, arch: 0.48, endStart: 2.25, endLen: 0.32,
+    top: [[-2.57, 0.75], [-2.53, 1.05], [-2.4, 1.12], [-1.6, 1.14], [0.9, 1.12], [1.55, 1.05], [2.15, 0.95], [2.45, 0.82], [2.57, 0.62]],
+    bot: [[-2.57, 0.52], [-2.4, 0.36], [2.3, 0.35], [2.57, 0.5]],
+    cabin: { x0: -2.47, x1: 1.2, base: 1.08, wBottom: 0.9, wTopDrop: 0.2, bPillar: [0.25, 0.35],
+      top: [[-2.47, 1.12], [-2.42, 1.62], [-2.28, 1.76], [-0.2, 1.78], [0.35, 1.74], [1.2, 1.1]] },
+    interior: { size: [2.6, 0.35, 1.45], pos: [-0.75, 1.3, 0] },
+    grille: { x: 2.53, y: 0.72, h: 0.12, w: 0.8 }, intake: { x: 2.52, y: 0.52, w: 1.2 },
+    plates: { front: [2.565, 0.58], rear: [-2.57, 0.9] },
+    headlight: { pos: [2.42, 0.85, 0.68], size: [0.14, 0.08, 0.34] },
+    taillight: { pos: [-2.5, 1.25, 0.8], size: [0.08, 0.36, 0.12], rotY: 0.15 },
+    mirror: [1.05, 1.17, 1.0], seams: [1.1, 0.3, -1.05], handles: [0.45, -0.2], handleY: 1.04, sideZ: 0.976,
+    wipers: [1.15, 1.13], exhaust: [-2.56, 0.45, 0.55],
+    engineAt: [1.6, 0.82, 0], hood: { pos: [1.85, 1.0, 0], size: [1.0, 0.14, 1.6] },
+    bumpers: [0.78, 0.7], brake3: [-2.38, 1.72],
+    rails: { y: 1.805, x0: -2.0, x1: 0.0, z: 0.65 }, cladding: false, view: [0.85, 1.12],
+  },
+  // Full-size cargo van (Transit, Sprinter, ProMaster): short nose, tall boxy body, windows only up front.
+  van: {
+    half: 2.75, wheelX: 1.75, axle: 0.38, wheelScale: 1.15, width: 1.0, arch: 0.5, endStart: 2.35, endLen: 0.4,
+    top: [[-2.75, 1.15], [-2.72, 1.25], [-2.6, 1.28], [1.5, 1.25], [2.0, 1.2], [2.4, 1.05], [2.62, 0.9], [2.75, 0.7]],
+    bot: [[-2.75, 0.55], [-2.6, 0.42], [2.45, 0.42], [2.75, 0.55]],
+    cabin: { x0: -2.72, x1: 1.75, base: 1.22, wBottom: 0.97, wTopDrop: 0.08, bPillar: [0.6, 0.72],
+      top: [[-2.72, 1.26], [-2.7, 2.3], [-2.6, 2.42], [0.9, 2.45], [1.25, 2.35], [1.75, 1.22]] },
+    interior: { size: [1.4, 0.4, 1.5], pos: [0.4, 1.45, 0] },
+    grille: { x: 2.69, y: 0.92, h: 0.18, w: 0.9 }, intake: { x: 2.72, y: 0.62, w: 1.3 },
+    plates: { front: [2.75, 0.66], rear: [-2.75, 0.85] },
+    headlight: { pos: [2.55, 1.02, 0.72], size: [0.14, 0.12, 0.3] },
+    taillight: { pos: [-2.73, 1.3, 0.88], size: [0.06, 0.5, 0.12], rotY: 0.05 },
+    mirror: [1.55, 1.55, 1.05], seams: [1.7, 0.75, -0.3], handles: [1.0, 0.05], handleY: 1.15, sideZ: 0.996,
+    wipers: [1.7, 1.27], exhaust: [-2.6, 0.45, 0.6],
+    engineAt: [2.0, 0.9, 0], hood: { pos: [2.2, 1.1, 0], size: [0.9, 0.16, 1.7] },
+    bumpers: [0.85, 0.85], brake3: [-2.7, 2.32],
+    rails: null, cladding: false, cargo: true, view: [1.2, 1.28],
+  },
+  // Crew-cab pickup (F-150, Tacoma, Santa Cruz): tall hood, four-door cab, open bed with a tailgate.
+  pickup: {
+    half: 2.75, wheelX: 1.75, axle: 0.42, wheelScale: 1.28, width: 0.99, arch: 0.55, endStart: 2.45, endLen: 0.3,
+    top: [[-2.75, 1.25], [-2.72, 1.3], [1.0, 1.3], [1.6, 1.27], [2.3, 1.2], [2.62, 1.05], [2.75, 0.82]],
+    bot: [[-2.75, 0.62], [-2.6, 0.55], [2.5, 0.52], [2.75, 0.62]],
+    cabin: { x0: -0.45, x1: 1.0, base: 1.28, wBottom: 0.9, wTopDrop: 0.14, bPillar: [0.25, 0.35],
+      top: [[-0.45, 1.3], [-0.43, 1.82], [-0.35, 1.9], [0.4, 1.92], [0.6, 1.88], [1.0, 1.28]] },
+    bed: { x0: -2.7, x1: -0.5 },
+    interior: { size: [1.3, 0.35, 1.5], pos: [0.3, 1.45, 0] },
+    grille: { x: 2.72, y: 1.0, h: 0.3, w: 1.1 }, intake: { x: 2.75, y: 0.72, w: 1.5 },
+    plates: { front: [2.76, 0.72], rear: [-2.76, 0.82] },
+    headlight: { pos: [2.6, 1.13, 0.7], size: [0.14, 0.1, 0.3] },
+    taillight: { pos: [-2.73, 1.12, 0.9], size: [0.06, 0.32, 0.1], rotY: 0 },
+    mirror: [0.85, 1.45, 1.05], seams: [0.98, 0.3, -0.42], handles: [0.55, -0.15], handleY: 1.24, sideZ: 0.976,
+    wipers: [0.95, 1.33], exhaust: [-2.6, 0.55, 0.6],
+    engineAt: [1.85, 1.0, 0], hood: { pos: [1.9, 1.27, 0], size: [1.4, 0.14, 1.7] },
+    bumpers: [0.95, 0.82], brake3: [-0.47, 1.86],
+    rails: null, cladding: false, view: [1.05, 1.25],
+  },
+  // Stretch limousine: a sedan with a long middle section.
+  limo: {
+    half: 3.28, wheelX: 2.4, axle: 0.34, wheelScale: 1, width: 0.9, arch: 0.43, endStart: 3.03, endLen: 0.25,
+    top: [[-3.28, 0.6], [-3.19, 0.84], [-2.95, 0.97], [-2.5, 1.02], [-2.15, 1.0], [1.85, 0.98], [2.45, 0.95], [2.95, 0.9], [3.19, 0.78], [3.28, 0.58]],
+    bot: [[-3.28, 0.46], [-3.1, 0.31], [3.05, 0.29], [3.28, 0.44]],
+    cabin: { x0: -2.47, x1: 1.9, base: 0.95, wBottom: 0.8, wTopDrop: 0.22, bPillar: [0.55, 0.65],
+      top: [[-2.47, 0.99], [-1.93, 1.34], [-1.57, 1.44], [0.97, 1.44], [1.9, 0.97]] },
+    interior: { size: [3.6, 0.3, 1.2], pos: [-0.3, 1.1, 0] },
+    grille: { x: 3.225, y: 0.62, h: 0.15, w: 0.74 }, intake: { x: 3.22, y: 0.45, w: 1.1 },
+    plates: { front: [3.265, 0.5], rear: [-3.268, 0.62] },
+    headlight: { pos: [3.15, 0.8, 0.58], size: [0.12, 0.07, 0.3] },
+    taillight: { pos: [-3.17, 0.9, 0.6], size: [0.1, 0.09, 0.32], rotY: 0.35 },
+    mirror: [1.75, 1.05, 0.89], seams: [1.85, 0.6, -1.4], handles: [1.33, 0.1, -0.9], handleY: 0.87, sideZ: 0.886,
+    wipers: [1.88, 1.0], exhaust: [-3.26, 0.36, 0.5],
+    engineAt: [2.4, 0.78, 0], hood: { pos: [2.53, 0.95, 0], size: [1.25, 0.14, 1.5] },
+    bumpers: [0.68, 0.56], brake3: [-1.95, 1.33],
+    rails: null, cladding: false, view: [0.7, 1.35],
+  },
+  // Two-seat roadster (Miata, Z4): short, low, open top.
+  roadster: {
+    half: 1.98, wheelX: 1.15, axle: 0.32, wheelScale: 0.95, width: 0.86, arch: 0.41, endStart: 1.75, endLen: 0.23,
+    top: [[-1.98, 0.58], [-1.9, 0.8], [-1.7, 0.88], [-1.2, 0.9], [0.6, 0.88], [1.2, 0.82], [1.7, 0.74], [1.9, 0.65], [1.98, 0.5]],
+    bot: [[-1.98, 0.42], [-1.82, 0.27], [1.78, 0.25], [1.98, 0.4]],
+    cabin: { x0: -0.6, x1: 0.55, base: 0.86, wBottom: 0.72, wTopDrop: 0.2, bPillar: [0, 0],
+      top: [[-0.6, 0.88], [-0.05, 1.12], [0.55, 0.86]] },
+    interior: { size: [0.9, 0.25, 1.1], pos: [-0.3, 0.95, 0] },
+    grille: { x: 1.95, y: 0.52, h: 0.1, w: 0.6 }, intake: { x: 1.94, y: 0.4, w: 0.9 },
+    plates: { front: [1.975, 0.45], rear: [-1.98, 0.55] },
+    headlight: { pos: [1.82, 0.7, 0.55], size: [0.14, 0.06, 0.28] },
+    taillight: { pos: [-1.92, 0.8, 0.58], size: [0.08, 0.07, 0.3], rotY: 0.35 },
+    mirror: [0.4, 0.95, 0.84], seams: [0.55, -0.45], handles: [-0.3], handleY: 0.8, sideZ: 0.846,
+    wipers: [0.6, 0.9], exhaust: [-1.96, 0.33, 0.45],
+    engineAt: [1.15, 0.68, 0], hood: { pos: [1.2, 0.84, 0], size: [1.2, 0.12, 1.4] },
+    bumpers: [0.58, 0.55], brake3: [-1.9, 0.86],
+    rails: null, cladding: false, openTop: true, view: [0.6, 0.92],
+  },
 };
+// Two-door variants: the convertible is the coupe with its top down; the 3-door hatch loses its rear doors.
+STYLES.convertible = Object.assign({}, STYLES.coupe, {
+  cabin: { x0: -0.9, x1: 0.9, base: 0.93, wBottom: 0.78, wTopDrop: 0.24, bPillar: [0, 0], top: [[-0.9, 0.95], [0.0, 1.24], [0.9, 0.95]] },
+  openTop: true, brake3: [-1.95, 0.97],
+});
+STYLES.hatch3 = Object.assign({}, STYLES.hatchback, { seams: [0.8, -0.75], handles: [-0.62], cabin: Object.assign({}, STYLES.hatchback.cabin, { bPillar: [0, 0] }) });
 
-/** NHTSA body class → body style. */
-export function styleFor(bodyClass) {
-  return /sport utility|suv|crossover|cuv|wagon|hatch|mpv|minivan|van/i.test(String(bodyClass || "")) ? "crossover" : "sedan";
+/**
+ * NHTSA body class → body style. extra: { doors, wheelbase } from the same decode, when NHTSA has them
+ * (wheelbase in inches). Compact SUVs like the Soul, Seltos and Niro come back as "Sport Utility Vehicle", so the
+ * wheelbase splits them from midsize ones; with no wheelbase they get the compact body.
+ */
+export function styleFor(bodyClass, extra) {
+  const b = String(bodyClass || "").toLowerCase(), e = extra || {};
+  const doors = parseInt(e.doors, 10) || 0, wheelbase = parseFloat(e.wheelbase) || 0;
+  if (/pickup|sport utility truck|\bsut\b/.test(b)) return "pickup";
+  if (/minivan/.test(b)) return "minivan";
+  if (/\bvan\b/.test(b)) return "van";
+  if (/limousine/.test(b)) return "limo";
+  if (/roadster/.test(b)) return "roadster";
+  if (/convertible|cabriolet/.test(b)) return "convertible";
+  if (/coupe/.test(b)) return "coupe";
+  if (/wagon/.test(b)) return "wagon";
+  if (/hatch|liftback|notchback/.test(b)) return doors && doors <= 3 ? "hatch3" : "hatchback";
+  if (/sport utility|suv|mpv|crossover|cuv/.test(b)) return wheelbase >= 109 ? "suv" : "crossover";
+  if (doors === 2) return "coupe";
+  return "sedan";
 }
+export const BODY_STYLES = Object.keys(STYLES);
 
 // Tire and rim, axis along z, built facing +z (the outside). Separate so each can be picked and priced.
 function wheel() {
@@ -348,18 +535,26 @@ export function buildCar(options) {
 
   // Cut the shell into panels by where each triangle sits: hood, fenders, doors, quarters, bumpers, trunk.
   const [bumpF, bumpR] = S.bumpers;
+  // door seams: front edge, B-pillar (four-door bodies only), rear edge
+  const seamF = S.seams[0], seamR = S.seams[S.seams.length - 1], seamB = S.seams.length > 2 ? S.seams[1] : null;
   function region(x, y, z, ny) {
     const mid = (bot(x) + topL(x)) / 2, flat = Math.abs(ny) > 0.55, side = z >= 0 ? 1 : -1;
     const sideFace = !flat && Math.abs(z) > S.width * ends(x) * 0.62;
     if (flat && y < mid) return "shell"; // underbody
-    if (x > S.seams[0]) {
+    if (x > seamF) {
       if (flat) return x > S.cabin.x1 - 0.02 ? "hoodpanel" : "shell";
       if (y < bumpF && x > W + S.arch * 0.5) return "bumperF";
       if (sideFace) return "fender:" + side;
       if (x > S.endStart - 0.03) return "bumperF";
       return y > mid ? "hoodpanel" : "shell";
     }
-    if (x < S.seams[2]) {
+    if (x < seamR) {
+      if (S.bed && x < S.bed.x1) {
+        // pickup: bed sides and tailgate; the top is left open so the bed can be seen into
+        if (y < bumpR && x < R - S.arch * 0.5 && !flat) return "bumperR";
+        if (flat) return "drop";
+        return "bed";
+      }
       if (flat) return x < S.cabin.x0 + 0.02 ? "trunk" : "shell";
       if (y < bumpR && x < R - S.arch * 0.5) return "bumperR";
       if (sideFace) return "quarter:" + side;
@@ -367,7 +562,7 @@ export function buildCar(options) {
       return y > mid && x < S.cabin.x0 + 0.02 ? "trunk" : "shell";
     }
     if (!sideFace) return "shell";
-    return (x > S.seams[1] ? "doorF:" : "doorR:") + side;
+    return (seamB === null || x > seamB ? "doorF:" : "doorR:") + side;
   }
   const a3 = new THREE.Vector3(), b3 = new THREE.Vector3(), c3 = new THREE.Vector3(), n3 = new THREE.Vector3(), t3 = new THREE.Vector3();
   function faces(geo, classify) {
@@ -380,12 +575,13 @@ export function buildCar(options) {
     }
     return out;
   }
-  const POP = { hoodpanel: [0.05, 0.32, 0], trunk: [-0.24, 0.2, 0], bumperF: [0.34, 0, 0], bumperR: [-0.34, 0, 0],
+  const POP = { hoodpanel: [0.05, 0.32, 0], trunk: [-0.24, 0.2, 0], bed: [-0.16, 0.3, 0], bumperF: [0.34, 0, 0], bumperR: [-0.34, 0, 0],
     fender: [0.05, 0.02, 0.3], quarter: [-0.05, 0.02, 0.3], doorF: [0, 0, 0.34], doorR: [0, 0, 0.34] };
   const shellParts = faces(lower, (x, y, z, n) => region(x, y, z, n.y));
   Object.keys(shellParts).forEach(function (key) {
     const [id, sd] = key.split(":"), side = sd ? +sd : 1;
     const m = subMesh(lower, shellParts[key], paintMat());
+    if (id === "drop") return;
     if (id === "shell") { deco(m); return; }
     const ex = POP[id].slice(); ex[2] *= side;
     panel(id, m, ex);
@@ -405,18 +601,34 @@ export function buildCar(options) {
   const cabinParts = faces(cabin, function (x, y, z, n) {
     const roof = y > roofY - 0.06, pillar = Math.abs(z) > 0.46 && Math.abs(n.x) > 0.45 && y > C0.base + 0.05;
     const bPillar = x > C0.bPillar[0] && x < C0.bPillar[1];
-    if (roof || pillar || bPillar) return "roof";
+    // open tops keep only the windshield and its frame; cargo vans are paneled behind the front doors
+    if (S.openTop && x <= cMid) return "drop";
+    if (roof || pillar || bPillar) return S.openTop ? "drop" : "roof";
+    if (S.cargo && x < C0.bPillar[0] && !(Math.abs(n.x) > 0.35 && x < cMid)) return "roof";
     if (Math.abs(n.x) > 0.35) return x > cMid ? "windshield" : "rearglass";
     return "sideglass:" + (z >= 0 ? 1 : -1);
   });
   const GLASS_POP = { windshield: [0.22, 0.16, 0], rearglass: [-0.22, 0.12, 0], sideglass: [0, 0.06, 0.22] };
   Object.keys(cabinParts).forEach(function (key) {
     const [id, sd] = key.split(":"), side = sd ? +sd : 1;
+    if (id === "drop") return;
     if (id === "roof") { deco(subMesh(cabin, cabinParts[key], paintMat())); return; }
     const ex = GLASS_POP[id].slice(); ex[2] *= side;
     panel(id, subMesh(cabin, cabinParts[key], material("glass")), ex);
   });
   deco(mesh(rbox(S.interior.size[0], S.interior.size[1], S.interior.size[2], 0.1), "interior", S.interior.pos));
+  if (S.openTop) {
+    // folded soft top behind the seats
+    panel("softtop", mesh(rbox(0.42, 0.11, 1.3, 0.05), "trim", [C0.x0 - 0.3, C0.base + 0.07, 0]), [-0.12, 0.28, 0]);
+  }
+  if (S.bed) {
+    // bed floor and the wall behind the cab
+    const len = S.bed.x1 - S.bed.x0, floorH = topL((S.bed.x0 + S.bed.x1) / 2) - 0.45;
+    panel("bed", group([
+      mesh(rbox(len - 0.04, 0.03, S.width * 2 - 0.12, 0.01), "plastic", [(S.bed.x0 + S.bed.x1) / 2, floorH, 0]),
+      mesh(rbox(0.035, 0.44, S.width * 2 - 0.1, 0.01), "paint", [S.bed.x1, floorH + 0.22, 0], null, { color: paintColor }),
+    ]), POP.bed);
+  }
 
   // lights, grille, mirrors, handles, wipers and trim
   panel("grille", group([
@@ -605,7 +817,7 @@ export function buildCar(options) {
   tag(hood, "engine"); car.add(hood);
 
   car.traverse((m) => { if (m.isMesh) { m.castShadow = m.material.visible !== false; m.receiveShadow = true; } });
-  return { group: car, body, panels, chassis, hood, engineAt: E.clone(), floorY };
+  return { group: car, body, panels, chassis, hood, engineAt: E.clone(), floorY, view: S.view || [0.7, 1] };
 }
 
 /** A two-post lift for the underside view. carriage rides up with the car: set its y to the car's. */

@@ -111,11 +111,13 @@ function injectCss() {
   document.head.appendChild(s);
 }
 
+// Body style from the VIN's body class, door count and wheelbase.
+function styleOf(v) { return styleFor(v.bodyClass || v.body, { doors: v.doors, wheelbase: v.wheelbase }); }
 function isElectric(v) { return /^electric$/i.test(String(v.fuel || "").trim()); }
 
 /**
  * root: an empty, sized element (give it a height or min-height).
- * options.vehicle: { year, make, model, trim, engine, cylinders, fuel, bodyClass, drive }
+ * options.vehicle: { year, make, model, trim, engine, cylinders, fuel, bodyClass, drive, doors, wheelbase }
  * options.demo: play a looping guided tour instead of taking input.
  * options.onSelect(id): called when the viewer opens a part.
  * options.paint: body color, a hex number or "#rrggbb" (change it later with setPaint).
@@ -173,14 +175,15 @@ export function createHologram(root, options = {}) {
   }
 
   // The car (body panels, underside parts), its engine and internals, and the lift. Rebuilt when the vehicle changes.
-  let car = null, lift = null, bodyParts = [], panels = [], chassis = [], hood = null, bayTarget = new THREE.Vector3();
+  let carView = [0.7, 1], car = null, lift = null, bodyParts = [], panels = [], chassis = [], hood = null, bayTarget = new THREE.Vector3();
   let engine = null, bayPick = [], bayDecor = [], insidePick = [], partMeshes = {};
   let BAY = [], INSIDE = [], UNDER = [], BODY = [];
   function buildAll() {
     [car, lift && lift.group].forEach(function (o) { if (o) { scene.remove(o); disposeTree(o); } });
-    const style = styleFor(vehicle.bodyClass || vehicle.body);
+    const style = styleOf(vehicle);
     const built = buildCar({ style, cylinders: vehicle.cylinders, drive: vehicle.drive, electric: isElectric(vehicle) });
     repaint(built.group, paint);
+    carView = built.view;
     car = built.group; bodyParts = built.body; panels = built.panels; chassis = built.chassis; hood = built.hood;
     bayTarget = built.engineAt.clone().add(new THREE.Vector3(0.3, 0.3, 0));
     car.userData.engineAt = built.engineAt;
@@ -276,7 +279,11 @@ export function createHologram(root, options = {}) {
   /* ---- camera flights ---- */
   const narrow = () => root.clientWidth < 560;
   function goal(m, id) {
-    if (m === "car" || m === "body") return { t: CAR_T.clone(), p: CAR_T.clone().addScaledVector(CAR_DIR, (narrow() ? 9.6 : 8.4) * (m === "body" ? 0.9 : 1)) };
+    if (m === "car" || m === "body") {
+      // bigger bodies (vans, pickups, limos) sit higher and need the camera further back
+      const t = CAR_T.clone().setY(carView[0]);
+      return { t, p: t.clone().addScaledVector(CAR_DIR, (narrow() ? 9.6 : 8.4) * carView[1] * (m === "body" ? 0.9 : 1)) };
+    }
     if (m === "bay") return { t: bayTarget.clone(), p: bayTarget.clone().addScaledVector(BAY_DIR, narrow() ? 5.4 : 4.4) };
     if (m === "inside") {
       const t = car.userData.engineAt.clone().add(new THREE.Vector3(0, 0.38, 0));
@@ -284,7 +291,7 @@ export function createHologram(root, options = {}) {
     }
     if (m === "under") {
       const t = new THREE.Vector3(-0.1, LIFT_H + 0.6, 0);
-      return { t, p: t.clone().addScaledVector(UNDER_DIR, narrow() ? 6.0 : 5.6) };
+      return { t, p: t.clone().addScaledVector(UNDER_DIR, (narrow() ? 6.0 : 5.6) * Math.min(carView[1], 1.15)) };
     }
     // part: frame the pulled-out piece(s) as they'll sit, on the side of the car facing the camera
     const level = levelOf(id), savedY = car.position.y;
@@ -590,7 +597,7 @@ export function createHologram(root, options = {}) {
   }
 
   /* ---- public API ---- */
-  const shape = (v) => [styleFor(v.bodyClass || v.body), v.cylinders || "", v.year || "", v.drive || "", isElectric(v)].join("|");
+  const shape = (v) => [styleOf(v), v.cylinders || "", v.year || "", v.drive || "", isElectric(v)].join("|");
   function setVehicle(v) {
     const rebuild = shape(v) !== shape(vehicle);
     vehicle = Object.assign({}, v);

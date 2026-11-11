@@ -8,6 +8,9 @@ export interface Vehicle {
   engine: { displacement: string | null; cylinders: string | null; fuel: string | null };
   drive: string | null;
   transmission: string | null;
+  /** NHTSA often leaves these blank. Wheelbase is in inches. */
+  doors?: string | null;
+  wheelbase?: string | null;
 }
 
 export interface OdometerEntry {
