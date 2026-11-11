@@ -27,5 +27,5 @@ export interface Hologram {
 
 export function createHologram(
   root: HTMLElement,
-  options?: { vehicle?: HologramVehicle; demo?: boolean; paint?: string; onSelect?: (partId: string) => void },
+  options?: { vehicle?: HologramVehicle; demo?: boolean; paint?: string; partsUrl?: string; onSelect?: (partId: string) => void },
 ): Hologram;

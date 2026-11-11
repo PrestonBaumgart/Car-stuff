@@ -6,6 +6,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PARTS, byId, buyLinks, carLabel, esc, money, tiers, wrenches } from "./parts.js";
 import { dimsFor } from "./car-dims.js";
+import { applyPartModels } from "./part-models.js";
 import { buildCar, buildEngine, buildGarage, buildLift, repaint, setVisibility, styleFor } from "./car-model.js";
 
 const CSS = `
@@ -122,6 +123,7 @@ function isElectric(v) { return /^electric$/i.test(String(v.fuel || "").trim());
  * options.demo: play a looping guided tour instead of taking input.
  * options.onSelect(id): called when the viewer opens a part.
  * options.paint: body color, a hex number or "#rrggbb" (change it later with setPaint).
+ * options.partsUrl: folder holding the part .glb files (ending in "/"); without it every part stays code-built.
  */
 export function createHologram(root, options = {}) {
   const demo = !!options.demo;
@@ -203,6 +205,7 @@ export function createHologram(root, options = {}) {
     bayPick.concat(insidePick, chassis, panels).forEach((o) => { (partMeshes[o.userData.id] = partMeshes[o.userData.id] || []).push(o); });
     const mapped = (flag) => PARTS.filter((p) => p[flag] && partMeshes[p.id]);
     BAY = mapped("bay"); INSIDE = mapped("inside"); UNDER = mapped("under"); BODY = mapped("body");
+    if (options.partsUrl) applyPartModels(partMeshes, options.partsUrl);
   }
   const LISTS = () => ({ bay: BAY, inside: INSIDE, under: UNDER, body: BODY });
   const has = (level) => level === "car" || LISTS()[level].length > 0;

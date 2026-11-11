@@ -43,7 +43,7 @@ export function CarHologram({ car }: { car: Car }) {
     // three.js is large and browser-only, so load it after the page renders.
     import("@/lib/hologram").then(({ createHologram }) => {
       if (!alive || !ref.current) return;
-      holo.current = createHologram(ref.current, { vehicle, paint });
+      holo.current = createHologram(ref.current, { vehicle, paint, partsUrl: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/parts/` });
     });
     return () => {
       alive = false;
