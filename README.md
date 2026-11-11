@@ -108,6 +108,8 @@ Some limits to keep in mind:
 - [x] Body style from the VIN (sedan or crossover) and inline-4 layouts like Kia's, with timing chains
 - [x] Underside on a lift: brakes, suspension, steering, axles, exhaust and fuel system (driveshaft and rear diff on AWD)
 - [x] Body & lights: doors, panels, bumpers, glass, lights, mirrors, wheels and trim, each priced
+- [x] Real size: about 100 common models (all of Kia's current range) fit to their spec-sheet length, width, height and wheelbase
+- [x] Body detail: panel shut lines, black window frames and B-pillars, wheel-well liners, tire tread, honeycomb grille, bumper lips
 - [ ] EV parts: battery pack, drive motor and charge port
 - [x] A body for every NHTSA passenger body class: sedan, coupe, convertible, roadster, 3- and 5-door hatchback, wagon, compact and midsize SUV, minivan, cargo van, pickup and limousine (door count and wheelbase from the VIN pick the closer variant)
 - [ ] Email and push alerts

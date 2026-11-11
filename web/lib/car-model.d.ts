@@ -12,3 +12,13 @@ export function styleFor(
 ): BodyStyle;
 
 export const BODY_STYLES: BodyStyle[];
+
+/** Build the 3D car. Only used from tests in TypeScript; the app uses it through hologram.js. */
+export function buildCar(options: {
+  style?: BodyStyle; dims?: import("./car-dims.js").CarDims | null; paint?: number | string;
+  cylinders?: string | number | null; drive?: string | null; electric?: boolean;
+}): { group: Object3DLike; body: Object3DLike[]; panels: Object3DLike[]; chassis: Object3DLike[] };
+
+/** three.js objects (three has no TypeScript types installed here). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Object3DLike = any;

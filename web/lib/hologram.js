@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PARTS, byId, buyLinks, carLabel, esc, money, tiers, wrenches } from "./parts.js";
+import { dimsFor } from "./car-dims.js";
 import { buildCar, buildEngine, buildGarage, buildLift, repaint, setVisibility, styleFor } from "./car-model.js";
 
 const CSS = `
@@ -181,14 +182,14 @@ export function createHologram(root, options = {}) {
   function buildAll() {
     [car, lift && lift.group].forEach(function (o) { if (o) { scene.remove(o); disposeTree(o); } });
     const style = styleOf(vehicle);
-    const built = buildCar({ style, cylinders: vehicle.cylinders, drive: vehicle.drive, electric: isElectric(vehicle) });
+    const built = buildCar({ style, dims: dimsFor(vehicle), cylinders: vehicle.cylinders, drive: vehicle.drive, electric: isElectric(vehicle) });
     repaint(built.group, paint);
     carView = built.view;
     car = built.group; bodyParts = built.body; panels = built.panels; chassis = built.chassis; hood = built.hood;
     bayTarget = built.engineAt.clone().add(new THREE.Vector3(0.3, 0.3, 0));
     car.userData.engineAt = built.engineAt;
     scene.add(car);
-    lift = buildLift(style); lift.group.visible = false; scene.add(lift.group);
+    lift = buildLift(built.floorY); lift.group.visible = false; scene.add(lift.group);
 
     bayPick = []; bayDecor = []; insidePick = [];
     engine = new THREE.Group();
@@ -597,7 +598,7 @@ export function createHologram(root, options = {}) {
   }
 
   /* ---- public API ---- */
-  const shape = (v) => [styleOf(v), v.cylinders || "", v.year || "", v.drive || "", isElectric(v)].join("|");
+  const shape = (v) => [styleOf(v), JSON.stringify(dimsFor(v)), v.cylinders || "", v.year || "", v.drive || "", isElectric(v)].join("|");
   function setVehicle(v) {
     const rebuild = shape(v) !== shape(vehicle);
     vehicle = Object.assign({}, v);

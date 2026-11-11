@@ -31,6 +31,8 @@ const LOOK = {
   taillight: { kind: "physical", color: 0x7a0d14, metalness: 0.1, roughness: 0.1, clearcoat: 1, emissive: 0xff2a3a, emissiveIntensity: 0.35 },
   plate: { color: 0xe6e6df, metalness: 0, roughness: 0.5 },
   interior: { color: 0x0c0d10, metalness: 0, roughness: 0.9 },
+  gloss: { kind: "physical", color: 0x08090b, metalness: 0.2, roughness: 0.12, clearcoat: 1 },
+  liner: { color: 0x101114, metalness: 0, roughness: 0.95 },
   spring: { color: 0x2c4f8a, metalness: 0.5, roughness: 0.4 },
   liftPost: { color: 0xc99a22, metalness: 0.3, roughness: 0.5 },
   liftArm: { color: 0x2f3439, metalness: 0.6, roughness: 0.45 },
@@ -48,7 +50,22 @@ function canvasTexture(w, h, draw, repeat) {
 }
 function getTextures() {
   if (textures) return textures;
+  if (typeof document === "undefined") return {}; // no canvas (tests): plain materials
   textures = {
+    // honeycomb grille mesh
+    grille: canvasTexture(128, 128, function (g, w, h) {
+      g.fillStyle = "#050607"; g.fillRect(0, 0, w, h);
+      g.strokeStyle = "#3a3e45"; g.lineWidth = 5;
+      const r = 16, dx = r * Math.sqrt(3);
+      for (let row = -1; row < 6; row++) {
+        for (let col = -1; col < 6; col++) {
+          const cx = col * dx + (row % 2 ? dx / 2 : 0), cy = row * r * 1.5;
+          g.beginPath();
+          for (let k = 0; k <= 6; k++) { const a = Math.PI / 6 + (k * Math.PI) / 3; g.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); }
+          g.stroke();
+        }
+      }
+    }, [6, 2]),
     concrete: canvasTexture(512, 512, function (g, w, h) {
       g.fillStyle = "#2b2f36"; g.fillRect(0, 0, w, h);
       for (let i = 0; i < 9000; i++) {
@@ -76,6 +93,7 @@ function getTextures() {
 export function material(key, extra) {
   const spec = Object.assign({}, LOOK[key], extra);
   const kind = spec.kind; delete spec.kind;
+  Object.keys(spec).forEach((k) => { if (spec[k] === undefined) delete spec[k]; });
   const m = kind === "physical" ? new THREE.MeshPhysicalMaterial(spec) : new THREE.MeshStandardMaterial(spec);
   m.transparent = true;
   m.side = THREE.DoubleSide;
@@ -96,13 +114,14 @@ export function setVisibility(obj, vis, glow, glowColor) {
   obj.visible = vis > 0.02;
   if (!obj.visible) return;
   obj.traverse(function (m) {
-    if (!m.isMesh) return;
+    if (!m.isMesh && !m.isLine) return;
     [].concat(m.material).forEach(function (mt) {
       const b = mt.userData.base;
       if (!b) return;
       mt.opacity = b.opacity * vis;
       mt.depthWrite = vis > 0.6;
-      m.castShadow = vis > 0.5;
+      if (m.isMesh) m.castShadow = vis > 0.5;
+      if (!mt.emissive) return;
       if (glow > 0) { mt.emissive.setHex(glowColor); mt.emissiveIntensity = glow; }
       else { mt.emissive.setHex(b.emissive); mt.emissiveIntensity = b.emissiveIntensity; }
     });
@@ -434,9 +453,52 @@ export function styleFor(bodyClass, extra) {
 }
 export const BODY_STYLES = Object.keys(STYLES);
 
+/**
+ * Fit a body style to a car's real size. dims: { length, width, height, wheelbase } in meters (any may be
+ * missing). The wheelbase stretches the middle of the body, the overhangs take up the rest of the length,
+ * height scales everything vertically (wheels included) and width is applied as a sideways scale on the
+ * finished car (kz). Factors are clamped so a model in the wrong body class can't distort the shape badly.
+ */
+function fitStyle(S, dims) {
+  if (!dims) return S;
+  const clamp = (v) => Math.min(1.35, Math.max(0.75, v));
+  const H0 = Math.max.apply(null, S.cabin.top.map((p) => p[1]));
+  const kIn = clamp(dims.wheelbase ? dims.wheelbase / (S.wheelX * 2) : dims.length ? dims.length / (S.half * 2) : 1);
+  const kOut = clamp(dims.length ? (dims.length / 2 - S.wheelX * kIn) / (S.half - S.wheelX) : kIn);
+  const ky = clamp(dims.height ? dims.height / H0 : 1), kz = clamp(dims.width ? dims.width / (S.width * 2) : 1);
+  const X = (x) => (Math.abs(x) <= S.wheelX ? x * kIn : Math.sign(x) * (S.wheelX * kIn + (Math.abs(x) - S.wheelX) * kOut));
+  const Y = (y) => y * ky, DX = (d) => (d * (kIn + kOut)) / 2;
+  const P = (p) => [X(p[0]), Y(p[1])];
+  const XYZ = (p) => [X(p[0]), Y(p[1]), p[2]];
+  const T = Object.assign({}, S, {
+    half: X(S.half), wheelX: S.wheelX * kIn, endStart: X(S.endStart), axle: Y(S.axle), wheelScale: S.wheelScale * ky, arch: S.arch * ky,
+    top: S.top.map(P), bot: S.bot.map(P),
+    cabin: Object.assign({}, S.cabin, { x0: X(S.cabin.x0), x1: X(S.cabin.x1), base: Y(S.cabin.base), bPillar: S.cabin.bPillar.map(X), top: S.cabin.top.map(P) }),
+    interior: { size: [DX(S.interior.size[0]), Y(S.interior.size[1]), S.interior.size[2]], pos: XYZ(S.interior.pos) },
+    grille: Object.assign({}, S.grille, { x: X(S.grille.x), y: Y(S.grille.y), h: Y(S.grille.h) }),
+    intake: Object.assign({}, S.intake, { x: X(S.intake.x), y: Y(S.intake.y) }),
+    plates: { front: P(S.plates.front), rear: P(S.plates.rear) },
+    headlight: { pos: XYZ(S.headlight.pos), size: [S.headlight.size[0], Y(S.headlight.size[1]), S.headlight.size[2]] },
+    taillight: Object.assign({}, S.taillight, { pos: XYZ(S.taillight.pos), size: [S.taillight.size[0], Y(S.taillight.size[1]), S.taillight.size[2]] }),
+    mirror: XYZ(S.mirror), seams: S.seams.map(X), handles: S.handles.map(X), handleY: Y(S.handleY),
+    wipers: P(S.wipers), exhaust: XYZ(S.exhaust), engineAt: XYZ(S.engineAt),
+    hood: { pos: XYZ(S.hood.pos), size: [DX(S.hood.size[0]), S.hood.size[1], S.hood.size[2]] },
+    bumpers: S.bumpers.map(Y), brake3: P(S.brake3),
+    rails: S.rails && Object.assign({}, S.rails, { y: Y(S.rails.y), x0: X(S.rails.x0), x1: X(S.rails.x1) }),
+    bed: S.bed && { x0: X(S.bed.x0), x1: X(S.bed.x1) },
+    kz,
+  });
+  T.endLen = T.half - T.endStart;
+  const v = S.view || [0.7, 1];
+  T.view = [v[0] * ky, v[1] * Math.max(1, T.half / S.half)];
+  return T;
+}
+
 // Tire and rim, axis along z, built facing +z (the outside). Separate so each can be picked and priced.
 function wheel() {
-  const tireProfile = [[0.215, -0.1], [0.3, -0.112], [0.322, -0.095], [0.332, -0.05], [0.332, 0.05], [0.322, 0.095], [0.3, 0.112], [0.215, 0.1]].map((p) => new THREE.Vector2(p[0], p[1]));
+  const tread = [];
+  [-0.05, -0.028, -0.022, -0.003, 0.003, 0.022, 0.028, 0.05].forEach((z, i) => tread.push([i % 4 === 1 || i % 4 === 2 ? 0.323 : 0.332, z]));
+  const tireProfile = [[0.215, -0.1], [0.3, -0.112], [0.322, -0.095]].concat(tread, [[0.322, 0.095], [0.3, 0.112], [0.215, 0.1]]).map((p) => new THREE.Vector2(p[0], p[1]));
   const tire = mesh(new THREE.LatheGeometry(tireProfile, 64), "rubber", null, RX);
   const rim = [
     mesh(new THREE.CylinderGeometry(0.218, 0.218, 0.19, 48, 1, true), "alloy", null, RX),
@@ -486,7 +548,7 @@ function subMesh(geo, tris, mat) {
 }
 
 /**
- * options: { style: "sedan" | "crossover", paint, cylinders, drive, electric }.
+ * options: { style (see BODY_STYLES), dims (real size, see car-dims.js), paint, cylinders, drive, electric }.
  * Returns { group, body, panels, chassis, hood, engineAt }:
  *   body     shell pieces that are not parts (underbody, roof, interior, seams): they fade in the other views
  *   panels   body-and-lights parts (doors, lights, glass, wheels…), tagged with part ids
@@ -497,7 +559,7 @@ function subMesh(geo, tris, mat) {
  */
 export function buildCar(options) {
   const o = options || {};
-  const S = STYLES[o.style] || STYLES.sedan;
+  const S = fitStyle(STYLES[o.style] || STYLES.sedan, o.dims);
   const paintColor = o.paint || 0x1f3f78;
   const vee = (parseInt(o.cylinders, 10) || 6) >= 6, electric = !!o.electric;
   const drive = String(o.drive || "");
@@ -559,54 +621,99 @@ export function buildCar(options) {
   const [bumpF, bumpR] = S.bumpers;
   // door seams: front edge, B-pillar (four-door bodies only), rear edge
   const seamF = S.seams[0], seamR = S.seams[S.seams.length - 1], seamB = S.seams.length > 2 ? S.seams[1] : null;
-  function region(x, y, z, ny) {
-    const mid = (bot(x) + topL(x)) / 2, flat = Math.abs(ny) > 0.55, side = z >= 0 ? 1 : -1;
-    const sideFace = !flat && Math.abs(z) > S.width * ends(x) * 0.62;
-    if (flat && y < mid) return "shell"; // underbody
+  // Panel borders follow the body's own grid lines (fixed positions around each cross-section, fixed x along
+  // the car) so every shut line runs smooth, never as a stair-step across the mesh. ring: { ye, ze } is where
+  // the triangle sits around the cross-section: ye -1 bottom … 1 top, ze -1 left … 1 right side.
+  const ringYe = (x, y) => Math.max(-0.95, Math.min(0.95, (y - (bot(x) + topL(x)) / 2) / ((topL(x) - bot(x)) / 2)));
+  const yeF = ringYe(S.half - 0.25, bumpF), yeR = ringYe(-S.half + 0.25, bumpR);
+  function region(x, ring) {
+    const { ye, ze } = ring, side = ze >= 0 ? 1 : -1;
+    const sideFace = Math.abs(ze) > 0.86, top = !sideFace && ye > 0, bottom = !sideFace && ye < 0;
+    if (bottom) return "shell"; // underbody
     if (x > seamF) {
-      if (flat) return x > S.cabin.x1 - 0.02 ? "hoodpanel" : "shell";
-      if (y < bumpF && x > W + S.arch * 0.5) return "bumperF";
-      if (sideFace) return "fender:" + side;
-      if (x > S.endStart - 0.03) return "bumperF";
-      return y > mid ? "hoodpanel" : "shell";
+      if (x > S.endStart - 0.05) return ye < yeF ? "bumperF" : top ? "hoodpanel" : "bumperF";
+      if (top) return x > S.cabin.x1 - 0.02 ? "hoodpanel" : "shell";
+      if (ye < yeF && x > W + S.arch * 0.5) return "bumperF";
+      return "fender:" + side;
     }
     if (x < seamR) {
       if (S.bed && x < S.bed.x1) {
         // pickup: bed sides and tailgate; the top is left open so the bed can be seen into
-        if (y < bumpR && x < R - S.arch * 0.5 && !flat) return "bumperR";
-        if (flat) return "drop";
+        if (top) return "drop";
+        if (ye < yeR && x < R - S.arch * 0.5) return "bumperR";
         return "bed";
       }
-      if (flat) return x < S.cabin.x0 + 0.02 ? "trunk" : "shell";
-      if (y < bumpR && x < R - S.arch * 0.5) return "bumperR";
-      if (sideFace) return "quarter:" + side;
-      if (x < -S.endStart + 0.03) return y < bumpR ? "bumperR" : "trunk";
-      return y > mid && x < S.cabin.x0 + 0.02 ? "trunk" : "shell";
+      if (x < -S.endStart + 0.05) return ye < yeR ? "bumperR" : "trunk";
+      if (top) return x < S.cabin.x0 + 0.02 ? "trunk" : "shell";
+      if (ye < yeR && x < R - S.arch * 0.5) return "bumperR";
+      return "quarter:" + side;
     }
-    if (!sideFace) return "shell";
+    if (top) return "shell";
     return (seamB === null || x > seamB ? "doorF:" : "doorR:") + side;
   }
+
   const a3 = new THREE.Vector3(), b3 = new THREE.Vector3(), c3 = new THREE.Vector3(), n3 = new THREE.Vector3(), t3 = new THREE.Vector3();
-  function faces(geo, classify) {
+  function faces(geo, classify, triKeys) {
     const P = geo.attributes.position, I = geo.index.array, out = {};
     for (let i = 0; i < I.length; i += 3) {
       a3.fromBufferAttribute(P, I[i]); b3.fromBufferAttribute(P, I[i + 1]); c3.fromBufferAttribute(P, I[i + 2]);
       n3.subVectors(c3, b3).cross(t3.subVectors(a3, b3)).normalize();
-      const key = classify((a3.x + b3.x + c3.x) / 3, (a3.y + b3.y + c3.y) / 3, (a3.z + b3.z + c3.z) / 3, n3);
+      // position around the cross-section, from the loft's vertex order (N points per ring)
+      const js = [I[i] % N, I[i + 1] % N, I[i + 2] % N], lo = Math.min.apply(null, js), hi = Math.max.apply(null, js);
+      const a = (((hi - lo > 1 ? hi : lo) + 0.5) / N) * Math.PI * 2;
+      const ring = { ye: sexp(Math.sin(a), 0.2), ze: sexp(Math.cos(a), 0.15) };
+      const key = classify((a3.x + b3.x + c3.x) / 3, (a3.y + b3.y + c3.y) / 3, (a3.z + b3.z + c3.z) / 3, n3, ring);
       (out[key] = out[key] || []).push(I[i], I[i + 1], I[i + 2]);
+      if (triKeys) triKeys.push(key);
     }
     return out;
   }
+  // Panel gaps: thin dark lines along every edge where two panels meet (hood, doors, bumpers, glass frames).
+  // Each line set rides on one of its panels, so it moves with that panel when it pops out.
+  // center(x) gives the body's middle height at x; lines sit a few mm outside the surface from there.
+  function gapLines(geo, triKeys, center, attach) {
+    const I = geo.index.array, P = geo.attributes.position, seen = new Map(), out = new Map(), v = new THREE.Vector3(), o = new THREE.Vector3();
+    for (let t = 0; t < triKeys.length; t++) {
+      for (let e = 0; e < 3; e++) {
+        const a = I[t * 3 + e], b = I[t * 3 + ((e + 1) % 3)], k = a < b ? a * 1e6 + b : b * 1e6 + a, prev = seen.get(k);
+        if (prev === undefined) { seen.set(k, triKeys[t]); continue; }
+        if (prev === triKeys[t]) continue;
+        const target = attach(prev, triKeys[t]);
+        if (!target) continue;
+        if (!out.has(target)) out.set(target, []);
+        [a, b].forEach(function (i) {
+          v.fromBufferAttribute(P, i);
+          o.set(Math.abs(v.x) > S.endStart ? Math.sign(v.x) * 0.5 : 0, v.y - center(v.x), v.z).normalize();
+          out.get(target).push(v.x + o.x * 0.004, v.y + o.y * 0.004, v.z + o.z * 0.004);
+        });
+      }
+    }
+    out.forEach(function (pts, target) {
+      const g = new THREE.BufferGeometry();
+      g.setAttribute("position", new THREE.Float32BufferAttribute(pts, 3));
+      const mat = new THREE.LineBasicMaterial({ color: 0x030405, transparent: true, opacity: 0.9 });
+      mat.userData.base = { opacity: 0.9 };
+      const line = new THREE.LineSegments(g, mat);
+      line.raycast = function () {}; // never steal a click from the panel
+      target.add(line);
+    });
+  }
   const POP = { hoodpanel: [0.05, 0.32, 0], trunk: [-0.24, 0.2, 0], bed: [-0.16, 0.3, 0], bumperF: [0.34, 0, 0], bumperR: [-0.34, 0, 0],
     fender: [0.05, 0.02, 0.3], quarter: [-0.05, 0.02, 0.3], doorF: [0, 0, 0.34], doorR: [0, 0, 0.34] };
-  const shellParts = faces(lower, (x, y, z, n) => region(x, y, z, n.y));
+  const shellKeys = [], shellMesh = {};
+  const shellParts = faces(lower, (x, y, z, n, ring) => region(x, ring), shellKeys);
   Object.keys(shellParts).forEach(function (key) {
     const [id, sd] = key.split(":"), side = sd ? +sd : 1;
-    const m = subMesh(lower, shellParts[key], paintMat());
     if (id === "drop") return;
+    const m = subMesh(lower, shellParts[key], paintMat());
+    shellMesh[key] = m;
     if (id === "shell") { deco(m); return; }
     const ex = POP[id].slice(); ex[2] *= side;
     panel(id, m, ex);
+  });
+  gapLines(lower, shellKeys, (x) => (bot(x) + topL(x)) / 2, function (k1, k2) {
+    if (k1 === "drop" || k2 === "drop" || (k1 === "shell" && k2 === "shell")) return null;
+    return shellMesh[k1 === "shell" ? k2 : k1];
   });
 
   // greenhouse: painted roof and pillars, then windshield, rear window and door glass
@@ -622,25 +729,29 @@ export function buildCar(options) {
   });
   surfaces.push(new THREE.Mesh(cabin, surfaces[0].material));
   const cabinHalf = (y) => cabinW - C0.wTopDrop * Math.max(0, (y - C0.base) / 0.5);
+  const cabinKeys = [], cabinMesh = {};
   const cabinParts = faces(cabin, function (x, y, z, n) {
     // pillars: the outer edges of the front and rear glass
     const roof = y > roofY - 0.06, pillar = Math.abs(z) > cabinHalf(y) * 0.86 && Math.abs(n.x) > 0.45 && y > C0.base + 0.05;
     const bPillar = x > C0.bPillar[0] && x < C0.bPillar[1];
     // open tops keep only the windshield and its frame; cargo vans are paneled behind the front doors
     if (S.openTop && x <= cMid) return "drop";
-    if (roof || pillar || bPillar) return S.openTop ? "drop" : "roof";
+    if (bPillar && !roof && !S.openTop) return "bpillar";
+    if (roof || pillar) return S.openTop ? "drop" : "roof";
     if (S.cargo && x < C0.bPillar[0] && !(Math.abs(n.x) > 0.35 && x < cMid)) return "roof";
     if (Math.abs(n.x) > 0.35) return x > cMid ? "windshield" : "rearglass";
     return "sideglass:" + (z >= 0 ? 1 : -1);
-  });
+  }, cabinKeys);
   const GLASS_POP = { windshield: [0.22, 0.16, 0], rearglass: [-0.22, 0.12, 0], sideglass: [0, 0.06, 0.22] };
   Object.keys(cabinParts).forEach(function (key) {
     const [id, sd] = key.split(":"), side = sd ? +sd : 1;
     if (id === "drop") return;
     if (id === "roof") { deco(subMesh(cabin, cabinParts[key], paintMat())); return; }
+    if (id === "bpillar") { deco(subMesh(cabin, cabinParts[key], material("gloss"))); return; }
     const ex = GLASS_POP[id].slice(); ex[2] *= side;
-    panel(id, subMesh(cabin, cabinParts[key], material("glass")), ex);
+    cabinMesh[key] = panel(id, subMesh(cabin, cabinParts[key], material("glass")), ex);
   });
+  gapLines(cabin, cabinKeys, (x) => (C0.base + topC(x)) / 2, (k1, k2) => cabinMesh[k1] || cabinMesh[k2] || null);
   deco(mesh(rbox(S.interior.size[0], S.interior.size[1], S.interior.size[2], 0.1), "interior", S.interior.pos));
   if (S.openTop) {
     // folded soft top behind the seats
@@ -657,9 +768,15 @@ export function buildCar(options) {
 
   // lights, grille, mirrors, handles, wipers and trim
   panel("grille", group([
-    stick(mesh(rbox(0.05, S.grille.h, S.grille.w, 0.02), "trim"), [FRONT, S.grille.y, 0], [-1, 0, 0], 0.018, false),
-    stick(mesh(rbox(0.05, 0.08, S.intake.w, 0.02), "trim"), [FRONT, S.intake.y, 0], [-1, 0, 0], 0.018, false),
+    stick(mesh(rbox(0.05, S.grille.h, S.grille.w, 0.02), "trim", null, null, { map: getTextures().grille }), [FRONT, S.grille.y, 0], [-1, 0, 0], 0.018, false),
+    stick(mesh(rbox(0.05, 0.08, S.intake.w, 0.02), "trim", null, null, { map: getTextures().grille }), [FRONT, S.intake.y, 0], [-1, 0, 0], 0.018, false),
   ]), [0.26, 0, 0]);
+  // unpainted lower lips: front splitter and rear diffuser
+  const lipF = S.bot[S.bot.length - 1][1] + 0.03, lipR = S.bot[0][1] + 0.04;
+  panel("bumperF", stick(mesh(rbox(0.06, 0.05, S.width * 1.55, 0.02), "trim"), [FRONT, lipF, 0], [-1, 0, 0], 0.03, false), POP.bumperF);
+  panel("bumperR", stick(mesh(rbox(0.06, 0.07, S.width * 1.45, 0.02), "trim"), [BACK, lipR, 0], [1, 0, 0], 0.03, false), POP.bumperR);
+  // dark wheel-well liners inside each arch
+  [W, R].forEach((wx) => [-1, 1].forEach((s) => deco(mesh(new THREE.CylinderGeometry(S.arch - 0.006, S.arch - 0.006, 0.3, 32, 1, true, Math.PI / 2, Math.PI), "liner", [wx, A - 0.06, s * (S.width - 0.16)], RX))));
   deco(stick(mesh(rbox(0.012, 0.1, 0.32, 0.005), "plate"), [FRONT, S.plates.front[1], 0], [-1, 0, 0], -0.004));
   deco(stick(mesh(rbox(0.012, 0.1, 0.32, 0.005), "plate"), [BACK, S.plates.rear[1], 0], [1, 0, 0], -0.004));
   [-1, 1].forEach(function (s) {
@@ -668,12 +785,12 @@ export function buildCar(options) {
     panel("headlamp", stick(mesh(rbox(0.05, hl.size[1] * 1.4, hl.size[2] * 1.15, 0.02), "headlight"), [FRONT, hl.pos[1], s * hl.pos[2]], [-1, 0, 0], 0.016), [0.2, 0.02, s * 0.06]);
     panel("taillamp", stick(mesh(rbox(0.05, tl.size[1], tl.size[2], 0.02), "taillight"), [BACK, tl.pos[1], s * tl.pos[2]], [1, 0, 0], 0.016), [-0.2, 0, s * 0.05]);
     panel("fog", stick(mesh(cyl(0.032, 0.03, 24), "headlight", null, RZ), [FRONT, S.intake.y + 0.035, s * 0.55], [-1, 0, 0], 0.006, false), [0.22, 0, 0]);
-    panel("mirrors", group([mesh(rbox(0.04, 0.03, 0.08, 0.01), "trim", [0, -0.02, -s * 0.05]), mesh(rbox(0.11, 0.075, 0.13, 0.03), "paint", [0, 0.01, 0], null, { color: paintColor })], [S.mirror[0], S.mirror[1], s * S.mirror[2]]), [0, 0.06, s * 0.2]);
-    // door seams follow the body side
-    S.seams.forEach(function (x) {
-      const yb = Math.max(bot(x) + 0.03, A + 0.02), yt = topL(x) - 0.03;
-      deco(mesh(new THREE.BoxGeometry(0.006, yt - yb, 0.004), "trim", [x, (yb + yt) / 2, s * S.sideZ]));
-    });
+    panel("mirrors", group([
+      mesh(rbox(0.04, 0.03, 0.08, 0.01), "trim", [0, -0.02, -s * 0.05]),
+      mesh(rbox(0.11, 0.075, 0.13, 0.03), "paint", [0, 0.01, 0], null, { color: paintColor }),
+      mesh(rbox(0.01, 0.06, 0.11, 0.004), "chrome", [-0.056, 0.01, 0]),
+      mesh(rbox(0.02, 0.012, 0.07, 0.004), "headlight", [0.01, -0.025, s * 0.02]), // turn-signal repeater
+    ], [S.mirror[0], S.mirror[1], s * S.mirror[2]]), [0, 0.06, s * 0.2]);
     panel("handles", group(S.handles.map((x) => stick(mesh(rbox(0.11, 0.022, 0.02, 0.008), "chrome"), [x, S.handleY, s * 2], [0, 0, -s], 0.004, false))), [0, 0, s * 0.4]);
     panel("wipers", mesh(rbox(0.025, 0.012, 0.56, 0.005), "trim", [S.wipers[0], S.wipers[1], s * 0.24], [0, 0.18 * s, -0.5]), [0, 0.16, 0]);
     if (S.rails) {
@@ -833,10 +950,11 @@ export function buildCar(options) {
       mesh(cyl(0.012, 0.03, 10), "steel", [tx + 0.13, ty + 0.15, tz2 + 0.08]),
     ]), [0.32, -0.14, 0]);
     under("ffilter", mesh(cyl(0.028, 0.13, 20), "darkSteel", [tx + 0.62, py + 0.02, -0.42], RZ), [0, -0.12, -0.04]);
-    const rail = [E.x + (vee ? 0 : 0.19), E.y + (vee ? 0.33 : 0.23), -0.3];
+    // the line climbs to the fuel rail but stays under the hood line
+    const railX = E.x + (vee ? 0 : 0.19), rail = [railX, Math.min(E.y + (vee ? 0.33 : 0.23), topL(railX) - 0.1), -0.3];
     under("flines", group([
       mesh(tube([[tx + 0.1, ty + 0.1, tz2 + 0.08], [tx + 0.36, py + 0.02, -0.42], [tx + 0.55, py + 0.02, -0.42]], 0.006, false, 24), "steel"),
-      mesh(tube([[tx + 0.69, py + 0.02, -0.42], [W - 0.5, py + 0.02, -0.42], [E.x - 0.32, E.y - 0.12, -0.42], [E.x - 0.1, E.y + 0.3, -0.42], rail], 0.006, false, 80), "steel"),
+      mesh(tube([[tx + 0.69, py + 0.02, -0.42], [W - 0.5, py + 0.02, -0.42], [E.x - 0.32, E.y - 0.12, -0.42], [E.x - 0.1, Math.min(E.y + 0.3, topL(E.x - 0.1) - 0.12), -0.42], rail], 0.006, false, 80), "steel"),
       mesh(tube([[tx + 0.16, ty + 0.1, tz2 + 0.08], [tx + 0.3, py + 0.03, -0.55], [tx + 0.39, py, -0.62]], 0.005, false, 24), "hose"),
     ]), [0, -0.08, 0]);
     under("evap", mesh(rbox(0.22, 0.1, 0.12, 0.02), "plastic", [tx + 0.5, py, -0.62]), [0, -0.14, -0.05]);
@@ -855,13 +973,14 @@ export function buildCar(options) {
   tag(hood, "engine"); car.add(hood);
 
   car.traverse((m) => { if (m.isMesh) { m.castShadow = m.material.visible !== false; m.receiveShadow = true; } });
+  car.scale.z = S.kz || 1; // real width
   return { group: car, body, panels, chassis, hood, engineAt: E.clone(), floorY, view: S.view || [0.7, 1] };
 }
 
-/** A two-post lift for the underside view. carriage rides up with the car: set its y to the car's. */
-export function buildLift(style) {
-  const S = STYLES[style] || STYLES.sedan;
-  const g = new THREE.Group(), carriage = new THREE.Group(), floorY = profile(S.bot)(0);
+/** A two-post lift for the underside view. floorY: the car's underbody height (buildCar returns it).
+ * carriage rides up with the car: set its y to the car's. */
+export function buildLift(floorY) {
+  const g = new THREE.Group(), carriage = new THREE.Group();
   [-1, 1].forEach(function (s) {
     g.add(mesh(rbox(0.2, 2.9, 0.2, 0.02), "liftPost", [-0.1, 1.45, s * 1.32]));
     g.add(mesh(rbox(0.5, 0.05, 0.4, 0.01), "darkSteel", [-0.1, 0.025, s * 1.32]));
