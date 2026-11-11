@@ -20,6 +20,8 @@ export interface Hologram {
   setVehicle(vehicle: HologramVehicle): void;
   /** Body color as "#rrggbb". */
   setPaint(color: string): void;
+  /** Part health colors by part id (see lib/part-health.ts). */
+  setHealth?(health: Record<string, { status: "good" | "watch" | "replace" | "unknown"; note: string }> | null): void;
   destroy(): void;
   play?(): void;
   pause?(): void;
@@ -27,5 +29,8 @@ export interface Hologram {
 
 export function createHologram(
   root: HTMLElement,
-  options?: { vehicle?: HologramVehicle; demo?: boolean; paint?: string; onSelect?: (partId: string) => void },
+  options?: {
+    vehicle?: HologramVehicle; demo?: boolean; paint?: string; onSelect?: (partId: string) => void;
+    health?: Record<string, { status: "good" | "watch" | "replace" | "unknown"; note: string }> | null;
+  },
 ): Hologram;
