@@ -112,6 +112,8 @@ Some limits to keep in mind:
 - [x] Body detail: panel shut lines, black window frames and B-pillars, wheel-well liners, tire tread, honeycomb grille, bumper lips
 - [ ] EV parts: battery pack, drive motor and charge port
 - [x] A body for every NHTSA passenger body class: sedan, coupe, convertible, roadster, 3- and 5-door hatchback, wagon, compact and midsize SUV, minivan, cargo van, pickup and limousine (door count and wheelbase from the VIN pick the closer variant)
+- [x] Insurance and registration with expiry warnings and calendar reminders (30, 7 and 1 day before)
+- [x] Common problems you can open: what the system is, top symptoms, owner reports, and how it's fixed; recalls show what can happen and the fix
 - [ ] Email and push alerts
 - [ ] Mobile app and OBD-II dongle support
 

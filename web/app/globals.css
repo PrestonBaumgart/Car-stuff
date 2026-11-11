@@ -169,3 +169,44 @@ th { font: 12px var(--f-hud); text-transform: uppercase; letter-spacing: 0.1em; 
   .bar { grid-template-columns: 1fr auto; }
   .bar .track { grid-column: 1 / -1; grid-row: 2; }
 }
+
+/* insurance & registration */
+.papers { margin-top: 4px; }
+.doc { display: grid; gap: 10px; align-content: start; padding: 14px; border: 1px solid rgba(138, 155, 184, 0.15); border-radius: 10px; background: rgba(7, 11, 20, 0.5); }
+.doc.due-soon { border-color: rgba(255, 176, 46, 0.5); }
+.doc.expired { border-color: rgba(255, 77, 109, 0.6); }
+.doc h3 { font-family: var(--f-display); font-weight: 800; text-transform: uppercase; font-size: 20px; letter-spacing: 0.03em; }
+.doc-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.doc-when { margin: 0; }
+.doc-when b { font: 600 18px var(--f-hud); }
+.doc.due-soon .doc-when b { color: var(--amber); }
+.doc.expired .doc-when b { color: var(--coral); }
+.doc .row { margin-top: 2px; }
+.due-banner { display: grid; gap: 6px; border: 1px solid rgba(255, 176, 46, 0.55); background: rgba(255, 176, 46, 0.08); border-radius: 10px; padding: 12px 14px; font-size: 14px; }
+.due-banner .hud { color: var(--amber); }
+.due-banner.expired { border-color: rgba(255, 77, 109, 0.7); background: rgba(255, 77, 109, 0.08); }
+.due-banner.expired .hud { color: var(--coral); }
+.due-banner ul { margin: 0; padding-left: 18px; }
+
+/* recalls and common problems: tap to expand the what and the how */
+details > summary { list-style: none; cursor: pointer; }
+details > summary::-webkit-details-marker { display: none; }
+.issue.recall summary .more { display: inline-block; margin-top: 6px; color: var(--holo); font-size: 11px; }
+.issue.recall[open] summary .more { display: none; }
+.issue.recall .what, .issue.recall .how { margin-top: 10px; }
+.what p, .how p { margin: 4px 0 0; font-size: 14px; color: var(--ink); }
+.what .hud, .how .hud { font-size: 11px; color: var(--amber); }
+.problem { border-bottom: 1px solid rgba(138, 155, 184, 0.12); }
+.problem > summary.bar { margin: 0; padding: 8px 0; }
+.problem > summary.bar .label::before { content: "▸ "; color: var(--holo); }
+.problem[open] > summary.bar .label::before { content: "▾ "; }
+.problem > summary:hover .label { color: var(--holo); }
+.problem-body { display: grid; gap: 14px; padding: 4px 0 16px 14px; border-left: 2px solid var(--line); margin-bottom: 10px; }
+.symptoms { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 4px; font-size: 14px; }
+.symptoms li { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px dashed rgba(138, 155, 184, 0.15); padding-bottom: 3px; }
+.symptoms .hud { font-size: 11px; }
+.problem blockquote { margin: 6px 0 0; padding: 8px 10px; border-left: 3px solid var(--steel); background: rgba(7, 11, 20, 0.5); font-size: 13px; color: #c3cee6; }
+.problem blockquote cite { display: block; margin-top: 4px; font: normal 11px var(--f-hud); color: var(--steel); text-transform: uppercase; letter-spacing: 0.1em; }
+.problem .btn { margin-top: 8px; }
+.how ol { margin: 6px 0 0; padding-left: 20px; font-size: 14px; display: grid; gap: 4px; }
+.fine { font-size: 13px; color: var(--steel); }

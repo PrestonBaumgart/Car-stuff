@@ -3,7 +3,7 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import type { Car, OdometerEntry, ServiceEntry, Specs, Vehicle } from "./types";
+import type { Car, Insurance, OdometerEntry, Registration, ServiceEntry, Specs, Vehicle } from "./types";
 
 const KEY = "vinsight.garage.v1";
 const EMPTY: Car[] = [];
@@ -99,4 +99,12 @@ export function saveSpecs(vin: string, specs: Specs) {
 
 export function savePaint(vin: string, paint: string) {
   update(vin, (c) => ({ ...c, paint }));
+}
+
+export function saveInsurance(vin: string, insurance: Insurance | undefined) {
+  update(vin, (c) => ({ ...c, insurance }));
+}
+
+export function saveRegistration(vin: string, registration: Registration | undefined) {
+  update(vin, (c) => ({ ...c, registration }));
 }

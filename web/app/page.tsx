@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AddCarForm } from "@/components/AddCarForm";
 import { HealthRing } from "@/components/HealthRing";
+import { DueBanner } from "@/components/DueBanner";
 import { useGarage } from "@/lib/garage-store";
 import { carHref, carTitle, fmtMiles } from "@/lib/format";
 import { currentMiles, healthScore, serviceQueue } from "@/lib/maintenance";
+import { docState } from "@/lib/reminders";
 
 export default function GaragePage() {
   const cars = useGarage();
@@ -23,6 +25,7 @@ export default function GaragePage() {
       </div>
 
       <div className="stack">
+        <DueBanner cars={cars} named />
         {cars.length > 0 ? (
           <div className="cars">
             {cars.map((car) => {
@@ -30,6 +33,7 @@ export default function GaragePage() {
               const overdue = queue.filter((q) => q.status === "overdue").length;
               const soon = queue.filter((q) => q.status === "due-soon").length;
               const miles = currentMiles(car);
+              const ins = docState(car.insurance?.expires), reg = docState(car.registration?.expires);
               return (
                 <Link key={car.vin} href={carHref(car.vin)} className="panel car-card">
                   <div className="meta">
@@ -46,6 +50,10 @@ export default function GaragePage() {
                     {overdue > 0 && <span className="pill overdue">{overdue} overdue</span>}
                     {soon > 0 && <span className="pill due-soon">{soon} due soon</span>}
                     {overdue + soon === 0 && <span className="pill ok">Nothing due</span>}
+                    {ins.status === "expired" && <span className="pill overdue">Insurance expired</span>}
+                    {ins.status === "due-soon" && <span className="pill due-soon">Insurance renews in {ins.daysLeft}d</span>}
+                    {reg.status === "expired" && <span className="pill overdue">Tag expired</span>}
+                    {reg.status === "due-soon" && <span className="pill due-soon">Tag renews in {reg.daysLeft}d</span>}
                   </div>
                 </Link>
               );

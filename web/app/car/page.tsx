@@ -9,6 +9,8 @@ import { CarHologram } from "@/components/CarHologram";
 import { HealthRing } from "@/components/HealthRing";
 import { KnownIssues } from "@/components/KnownIssues";
 import { OdometerCard } from "@/components/OdometerCard";
+import { PapersCard } from "@/components/PapersCard";
+import { DueBanner } from "@/components/DueBanner";
 import { ServiceQueue } from "@/components/ServiceQueue";
 import { SpecsCard } from "@/components/SpecsCard";
 import { removeCar, removeService, renameCar, useCar } from "@/lib/garage-store";
@@ -44,6 +46,7 @@ function CarView() {
   return (
     <div className="stack">
       <Header car={car} score={score} />
+      <DueBanner cars={[car]} />
       <CarHologram car={car} />
       <div className="grid two">
         <ServiceQueue car={car} queue={queue} />
@@ -52,6 +55,7 @@ function CarView() {
           <SpecsCard key={car.vin} car={car} />
         </div>
       </div>
+      <PapersCard car={car} />
       <KnownIssues car={car} />
       <History car={car} />
       <Danger car={car} />
