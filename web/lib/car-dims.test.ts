@@ -9,11 +9,17 @@ const SUV = "Sport Utility Vehicle [SUV]/Multipurpose Vehicle [MPV]";
 
 describe("dimsFor", () => {
   it("finds the owner's cars by make, model and year", () => {
-    expect(dimsFor({ make: "KIA", model: "Soul", year: "2021" })).toMatchObject({ length: 4.195, width: 1.8, height: 1.615, wheelbase: 2.6 });
+    expect(dimsFor({ make: "KIA", model: "Soul", year: "2021" })).toMatchObject({ length: 4.195, width: 1.8, height: 1.6, wheelbase: 2.6 });
     expect(dimsFor({ make: "KIA", model: "Forte", year: "2016" })).toMatchObject({ length: 4.56, wheelbase: 2.7 });
   });
   it("picks the right generation", () => {
     expect(dimsFor({ make: "Kia", model: "Soul", year: "2016" })?.length).toBe(4.14);
+  });
+  it("tells body styles of one model apart", () => {
+    expect(dimsFor({ make: "Honda", model: "Accord", year: "2003", bodyClass: "Coupe" })?.length).toBe(4.77);
+    expect(dimsFor({ make: "Honda", model: "Accord", year: "2003", bodyClass: "Sedan/Saloon" })?.length).toBe(4.813);
+    expect(dimsFor({ make: "Kia", model: "Forte", year: "2016", bodyClass: "Hatchback/Liftback/Notchback" })?.length).toBe(4.35);
+    expect(dimsFor({ make: "Kia", model: "Forte Koup", year: "2015" })?.height).toBe(1.42);
   });
   it("uses NHTSA's wheelbase (inches) when it has one", () => {
     expect(dimsFor({ make: "Kia", model: "Niro", year: "2020", wheelbase: "106.30" })?.wheelbase).toBeCloseTo(2.7, 2);
