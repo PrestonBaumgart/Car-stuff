@@ -6,6 +6,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PARTS, byId, buyLinks, carLabel, esc, money, tiers, wrenches } from "./parts.js";
 import { dimsFor } from "./car-dims.js";
+import { applyPartModels } from "./part-models.js";
+import { addBody, showCode } from "./body-model.js";
+import { bodyFor } from "./car-bodies.js";
 import { buildCar, buildEngine, buildGarage, buildLift, repaint, setVisibility, styleFor } from "./car-model.js";
 
 const CSS = `
@@ -145,6 +148,8 @@ function isElectric(v) { return /^electric$/i.test(String(v.fuel || "").trim());
  * options.demo: play a looping guided tour instead of taking input.
  * options.onSelect(id): called when the viewer opens a part.
  * options.paint: body color, a hex number or "#rrggbb" (change it later with setPaint).
+ * options.partsUrl: folder holding the part .glb files (ending in "/"), and real car bodies under "cars/";
+ *   without it every part and body stays code-built.
  * options.health: { partId: { status: "good" | "watch" | "replace" | "unknown", note } } from the service log
  *   (change it later with setHealth). Parts are tinted by it while the viewer has health colors on.
  */
@@ -208,6 +213,8 @@ export function createHologram(root, options = {}) {
   // The car (body panels, underside parts), its engine and internals, and the lift. Rebuilt when the vehicle changes.
   let carView = [0.7, 1], car = null, lift = null, bodyParts = [], panels = [], chassis = [], hood = null, bayTarget = new THREE.Vector3();
   let engine = null, bayPick = [], bayDecor = [], insidePick = [], partMeshes = {};
+  // the real body model over the code-built one, once it has loaded (null until then, or if there isn't one)
+  let realBody = null, destroyed = false;
   let BAY = [], INSIDE = [], UNDER = [], BODY = [];
   function buildAll() {
     [car, lift && lift.group].forEach(function (o) { if (o) { scene.remove(o); disposeTree(o); } });
@@ -233,6 +240,17 @@ export function createHologram(root, options = {}) {
     bayPick.concat(insidePick, chassis, panels).forEach((o) => { (partMeshes[o.userData.id] = partMeshes[o.userData.id] || []).push(o); });
     const mapped = (flag) => PARTS.filter((p) => p[flag] && partMeshes[p.id]);
     BAY = mapped("bay"); INSIDE = mapped("inside"); UNDER = mapped("under"); BODY = mapped("body");
+    if (options.partsUrl) applyPartModels(partMeshes, options.partsUrl);
+
+    realBody = null;
+    const real = options.partsUrl ? bodyFor(vehicle) : null;
+    if (real) {
+      const forCar = car;
+      const current = () => !destroyed && car === forCar; // a vehicle change rebuilds the car while this loads
+      addBody(car, bodyParts.concat(panels), options.partsUrl + "cars/" + real.file, current).then(function (model) {
+        if (model && current()) realBody = model;
+      });
+    }
   }
   const LISTS = () => ({ bay: BAY, inside: INSIDE, under: UNDER, body: BODY });
   const has = (level) => level === "car" || LISTS()[level].length > 0;
@@ -478,6 +496,7 @@ export function createHologram(root, options = {}) {
   const approach = (v, g, dt, speed) => v + (g - v) * Math.min(1, dt * speed);
   // How much of the car body stays as a see-through reference in each view: [browsing, part close-up].
   const GHOST = { bay: [0.14, 0.025], inside: [0.05, 0.025], under: [0.3, 0.1] };
+  const isWheel = (id) => id === "wheels" || id === "tires";
   function loop() {
     raf = requestAnimationFrame(loop);
     const t = clock.getElapsedTime(), dt = Math.min(0.1, t - last); last = t;
@@ -510,18 +529,37 @@ export function createHologram(root, options = {}) {
       const st = healthFor(id).status;
       setVisibility(o, vis, st === "unknown" ? 0.14 : 0.55, HEALTH_COLOR[st]);
     };
-    bodyParts.forEach((o) => setVisibility(o, shell, 0));
+    // a real body stands in for the code-built shell, which stays only as invisible pick targets
+    bodyParts.forEach((o) => setVisibility(o, realBody ? 0 : shell, 0));
+    if (realBody) setVisibility(realBody, shell, 0);
     setVisibility(hood, 1, 0); // invisible pick target
     panels.forEach(function (o) {
-      const id = o.userData.id, mine = focus && level === "body" && id === partId;
+      const id = o.userData.id, mine = focus && level === "body" && id === partId, on = hot(id, "body");
       o.userData.pop = go(o.userData.pop || 0, mine ? 1 : 0, 3);
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, o.userData.pop);
-      paintBy(o, mine ? 1 : shell, id, hot(id, "body"), false); // body panels only when the log covers them (tires, wipers)
+      let vis = mine ? 1 : shell;
+      if (realBody) {
+        if (isWheel(id)) {
+          // the real body has its own wheels: the code ones (and the wheel model on them) show from underneath,
+          // or while either wheel part is picked, since one wheel model stands in for both
+          const picked = (focus && level === "body" && isWheel(partId)) || isWheel(hoverId);
+          if (picked) vis = focus ? 1 : vis;
+          else if (level !== "under") vis = 0;
+        } else if (o.userData.codeOn !== (mine || on)) {
+          // a code panel shows only while picked; only touch its materials when that changes
+          o.userData.codeOn = mine || on;
+          showCode(o, o.userData.codeOn);
+        }
+      }
+      paintBy(o, vis, id, on, false); // body panels only when the log covers them (tires, wipers)
     });
     chassis.forEach(function (o) {
       const id = o.userData.id, on = hot(id, "under");
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, underExplode);
-      paintBy(o, level === "under" ? (focus && !on ? 0.15 : 1) : shell, id, on, true);
+      let vis = level === "under" ? (focus && !on ? 0.15 : 1) : shell;
+      // the code-built underside would poke through a real body: it only shows from underneath
+      if (realBody && level !== "under" && !on) vis = 0;
+      paintBy(o, vis, id, on, true);
     });
     engine.visible = bayVis > 0.02;
     // engine bay parts: pulled apart in the bay; a see-through shell inside the engine; dimmed and assembled from underneath
@@ -675,6 +713,7 @@ export function createHologram(root, options = {}) {
     if (car) repaint(car, paint);
   }
   function destroy() {
+    destroyed = true;
     pause();
     cancelAnimationFrame(raf);
     ro.disconnect(); io.disconnect();

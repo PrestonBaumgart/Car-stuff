@@ -553,7 +553,7 @@ import { createHologram } from "./web/lib/hologram.js";
 
   /* ---------------- 3D demo ---------------- */
   // The landing page plays the app's 3D view as a looping tour; the interactive version lives in the app (web/).
-  var holo = createHologram($("stage"), { vehicle: vehicle, demo: true });
+  var holo = createHologram($("stage"), { vehicle: vehicle, demo: true, partsUrl: "app/parts/" });
 })();
 </script>
 

@@ -30,7 +30,7 @@ export interface Hologram {
 export function createHologram(
   root: HTMLElement,
   options?: {
-    vehicle?: HologramVehicle; demo?: boolean; paint?: string; onSelect?: (partId: string) => void;
+    vehicle?: HologramVehicle; demo?: boolean; paint?: string; partsUrl?: string; onSelect?: (partId: string) => void;
     health?: Record<string, { status: "good" | "watch" | "replace" | "unknown"; note: string }> | null;
   },
 ): Hologram;
