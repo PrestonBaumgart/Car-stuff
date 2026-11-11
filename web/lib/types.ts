@@ -40,8 +40,6 @@ export interface Car extends Vehicle {
   odometer: OdometerEntry[];
   serviceLog: ServiceEntry[];
   specs: Specs;
-  /** Body color for the 3D model, "#rrggbb". */
-  paint?: string;
   insurance?: Insurance;
   registration?: Registration;
 }

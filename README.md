@@ -114,6 +114,7 @@ Some limits to keep in mind:
 - [x] A body for every NHTSA passenger body class: sedan, coupe, convertible, roadster, 3- and 5-door hatchback, wagon, compact and midsize SUV, minivan, cargo van, pickup and limousine (door count and wheelbase from the VIN pick the closer variant)
 - [x] Insurance and registration with expiry warnings and calendar reminders (30, 7 and 1 day before)
 - [x] Common problems you can open: what the system is, top symptoms, owner reports, and how it's fixed; recalls show what can happen and the fix
+- [x] Scan a service receipt, insurance card or registration: read on the device (Tesseract.js), reviewed, then saved to the garage
 - [ ] Email and push alerts
 - [ ] Mobile app and OBD-II dongle support
 

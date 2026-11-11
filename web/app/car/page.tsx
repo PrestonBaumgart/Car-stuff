@@ -10,6 +10,7 @@ import { HealthRing } from "@/components/HealthRing";
 import { KnownIssues } from "@/components/KnownIssues";
 import { OdometerCard } from "@/components/OdometerCard";
 import { PapersCard } from "@/components/PapersCard";
+import { ScanCard } from "@/components/ScanCard";
 import { DueBanner } from "@/components/DueBanner";
 import { ServiceQueue } from "@/components/ServiceQueue";
 import { SpecsCard } from "@/components/SpecsCard";
@@ -47,6 +48,7 @@ function CarView() {
     <div className="stack">
       <Header car={car} score={score} />
       <DueBanner cars={[car]} />
+      <ScanCard car={car} />
       <CarHologram car={car} />
       <div className="grid two">
         <ServiceQueue car={car} queue={queue} />

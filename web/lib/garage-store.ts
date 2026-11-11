@@ -97,10 +97,6 @@ export function saveSpecs(vin: string, specs: Specs) {
   update(vin, (c) => ({ ...c, specs }));
 }
 
-export function savePaint(vin: string, paint: string) {
-  update(vin, (c) => ({ ...c, paint }));
-}
-
 export function saveInsurance(vin: string, insurance: Insurance | undefined) {
   update(vin, (c) => ({ ...c, insurance }));
 }
