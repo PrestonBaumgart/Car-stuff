@@ -5,6 +5,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { PARTS, byId, buyLinks, carLabel, esc, money, tiers, wrenches } from "./parts.js";
+import { DEFAULTS, RATES, TIER_NAMES, quote, quoteLine } from "./quote.js";
 import { dimsFor } from "./car-dims.js";
 import { buildCar, buildEngine, buildGarage, buildLift, repaint, setVisibility, styleFor } from "./car-model.js";
 
@@ -12,8 +13,8 @@ const CSS = `
 .holo { position: relative; overflow: hidden; }
 .holo [hidden] { display: none !important; }
 .holo-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; touch-action: pan-y; }
-.holo.is-demo .holo-canvas, .holo.is-demo .holo-panel, .holo.is-demo .holo-panel *, .holo.is-demo .holo-crumbs * { pointer-events: none !important; }
-.holo-hud, .holo-hint, .holo-crumbs, .holo-tip, .holo-chip, .holo-strip button, .holo-panel .back, .holo .hud, .holo-pause { font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; }
+.holo.is-demo .holo-canvas, .holo.is-demo .holo-panel, .holo.is-demo .holo-panel *, .holo.is-demo .holo-top * { pointer-events: none !important; }
+.holo-hud, .holo-hint, .holo-top, .holo-tip, .holo-chip, .holo-strip button, .holo-panel .back, .holo .hud, .holo-pause { font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; }
 .holo-hud { position: absolute; left: 14px; top: 12px; right: 14px; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; z-index: 2; letter-spacing: .14em; font-size: 12px; color: var(--steel); }
 .holo-hud .v { color: var(--holo); }
 .holo.is-narrow .holo-hud > span:last-child { display: none; }
@@ -30,11 +31,44 @@ const CSS = `
 .holo-btn.warm { background: var(--amber); border-color: var(--amber); }
 .holo-btn.ghost { background: transparent; color: var(--holo); }
 .holo-btn.pressed { box-shadow: 0 0 0 4px rgba(255,176,46,.45), 0 0 34px var(--amber); transform: scale(.97); }
-.holo-crumbs { position: absolute; left: 14px; right: 14px; top: 38px; z-index: 4; display: flex; align-items: center; gap: 6px; overflow-x: auto; scrollbar-width: none; font-size: 12px; letter-spacing: .12em; color: var(--steel); }
-.holo-crumbs::-webkit-scrollbar { display: none; }
-.holo-crumbs button { flex: none; font: inherit; letter-spacing: inherit; text-transform: inherit; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 6px 10px; cursor: pointer; }
-.holo-crumbs button:hover { border-color: var(--holo); }
-.holo-crumbs button.here { color: #021018; background: var(--amber); border-color: var(--amber); font-weight: 600; }
+.holo-top { position: absolute; left: 14px; right: 14px; top: 38px; z-index: 6; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; font-size: 12px; letter-spacing: .12em; color: var(--steel); pointer-events: none; }
+.holo-top > * { pointer-events: auto; }
+.holo-top button { font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.holo-views { position: relative; }
+.holo-viewbtn { display: inline-flex; align-items: center; gap: 10px; background: var(--amber); border: 1px solid var(--amber); color: #021018; font-weight: 600; padding: 7px 12px; }
+.holo-viewbtn .lbl { color: rgba(2,16,24,.65); font-weight: 400; }
+.holo-viewbtn .car { transition: transform .15s; font-size: 10px; }
+.holo-viewbtn[aria-expanded="true"] .car { transform: rotate(180deg); }
+.holo-menu { position: absolute; left: 0; top: calc(100% + 4px); min-width: 210px; display: grid; background: rgba(6,10,20,.97); border: 1px solid var(--amber); box-shadow: 0 10px 30px rgba(0,0,0,.5); padding: 4px; }
+.holo-menu[hidden] { display: none; }
+.holo-menu button { display: flex; align-items: center; gap: 10px; text-align: left; background: none; border: 0; color: var(--holo); padding: 9px 10px; }
+.holo-menu button:hover, .holo-menu button:focus-visible { background: rgba(61,224,255,.1); outline: none; }
+.holo-menu button .tick { width: 10px; color: var(--amber); }
+.holo-menu button[aria-checked="true"] { color: var(--amber); }
+.holo-menu button .n { margin-left: auto; color: var(--steel); font-size: 10px; }
+.holo-quotebtn { background: rgba(3,6,12,.85); border: 1px solid var(--amber); color: var(--amber); padding: 7px 12px; font-weight: 600; }
+.holo-quotebtn:hover, .holo-quotebtn[aria-pressed="true"] { background: var(--amber); color: #021018; }
+.holo-panel .q-add { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; padding: 10px 12px; border: 1px dashed var(--amber); }
+.holo-panel .q-add .q-est { font-size: 13px; color: var(--ink); }
+.holo-panel .q-add .q-est b { color: var(--amber); font-size: 18px; display: block; }
+.holo-panel .q-add .q-est span { color: var(--steel); font-size: 12px; }
+.holo-panel .q-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.holo-panel .q-row .nm { font-weight: 600; color: var(--holo); }
+.holo-panel .q-row .amt { text-align: right; font-variant-numeric: tabular-nums; }
+.holo-panel .q-row .sub { color: var(--steel); font-size: 12px; grid-column: 1 / -1; display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; }
+.holo-panel .q-row .ctl { grid-column: 1 / -1; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.holo-panel .q-row select, .holo-panel .q-set select, .holo-panel .q-set input { font: inherit; font-size: 12px; background: #050912; color: var(--ink); border: 1px solid var(--line); padding: 4px 6px; }
+.holo-panel .q-row .ctl select { width: auto; }
+.holo-panel .q-step { display: inline-flex; align-items: center; border: 1px solid var(--line); }
+.holo-panel .q-step button { background: none; border: 0; color: var(--holo); width: 26px; height: 26px; cursor: pointer; font-size: 15px; }
+.holo-panel .q-step span { min-width: 22px; text-align: center; }
+.holo-panel .q-x { margin-left: auto; background: none; border: 0; color: var(--steel); cursor: pointer; font-size: 12px; text-decoration: underline; }
+.holo-panel .q-set { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 4px; font-size: 12px; color: var(--steel); }
+.holo-panel .q-set label { display: grid; gap: 4px; }
+.holo-panel .q-tot { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; margin-top: 12px; font-size: 13px; font-variant-numeric: tabular-nums; }
+.holo-panel .q-tot .big { font-size: 22px; color: var(--amber); font-weight: 700; border-top: 1px solid var(--amber); padding-top: 6px; margin-top: 4px; }
+.holo-panel .q-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.holo-panel .q-empty { font-size: 14px; color: #c3cee6; }
 .holo-ctrls { position: absolute; right: 14px; top: 76px; z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
 .holo-ctrls > * { pointer-events: auto; }
 .holo-healthtoggle { font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; font-size: 12px; letter-spacing: .12em; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 5px 9px; cursor: pointer; }
@@ -158,10 +192,14 @@ export function createHologram(root, options = {}) {
   injectCss();
   root.classList.add("holo");
   root.classList.toggle("is-demo", demo);
+  const uid = "holo" + Math.random().toString(36).slice(2, 8);
   root.innerHTML =
     '<canvas class="holo-canvas"></canvas>' +
     '<div class="holo-hud"><span>Scan <span class="v" data-car></span></span><span><span class="v" data-count></span> parts mapped</span></div>' +
-    '<nav class="holo-crumbs" aria-label="3D views"></nav>' +
+    '<div class="holo-top"><div class="holo-views">' +
+      '<button type="button" class="holo-viewbtn" aria-haspopup="true" aria-expanded="false" aria-controls="' + uid + '-views"><span class="lbl">View</span><span data-view></span><span class="car" aria-hidden="true">▼</span></button>' +
+      '<div class="holo-menu" id="' + uid + '-views" role="menu" aria-label="3D views" hidden></div></div>' +
+      '<button type="button" class="holo-quotebtn" aria-pressed="false" hidden>Quote</button></div>' +
     '<div class="holo-hint"></div>' +
     '<div class="holo-ctrls"><button type="button" class="holo-cartoggle" aria-pressed="true" hidden>Car: shown</button>' +
     '<button type="button" class="holo-healthtoggle" aria-pressed="true" hidden>Health: on</button>' +
@@ -172,12 +210,12 @@ export function createHologram(root, options = {}) {
     '<span class="holo-corner tl"></span><span class="holo-corner tr"></span><span class="holo-corner bl"></span><span class="holo-corner br"></span>' +
     (demo ? '<div class="holo-cursor" aria-hidden="true">' + CURSOR + '</div><div class="holo-caption" aria-hidden="true"><b></b><strong></strong><span></span></div><button type="button" class="holo-pause"></button>' : "");
   const $ = (s) => root.querySelector(s);
-  const canvas = $(".holo-canvas"), crumbs = $(".holo-crumbs"), hint = $(".holo-hint");
+  const canvas = $(".holo-canvas"), viewBtn = $(".holo-viewbtn"), menu = $(".holo-menu"), quoteBtn = $(".holo-quotebtn"), hint = $(".holo-hint");
   const strip = $(".holo-strip"), panel = $(".holo-panel"), tip = $(".holo-tip"), carToggle = $(".holo-cartoggle");
   const healthToggle = $(".holo-healthtoggle"), legend = $(".holo-legend");
   canvas.setAttribute("aria-label", demo
     ? "Demo: the 3D car opens its engine bay, goes up on the lift, zooms into a part and shows its prices."
-    : "Interactive 3D model of your car. Use the view tabs and part buttons for keyboard access.");
+    : "Interactive 3D model of your car. Use the view menu and part buttons for keyboard access.");
   if (demo) canvas.setAttribute("role", "img");
 
   const stub = { setVehicle() {}, destroy() { root.innerHTML = ""; } };
@@ -273,6 +311,7 @@ export function createHologram(root, options = {}) {
   const healthFor = (id) => (health && health[id]) || { status: "unknown", note: "" };
 
   function renderPanel(p) {
+    if (quoteOpen) return; // the quote is showing in the panel
     const save = Math.max(0, p.shop - p.diy);
     panel.innerHTML =
       '<button type="button" class="back" data-back>‹ ' + LEVEL_NAME[levelOf(p.id)] + "</button>" +
@@ -280,6 +319,7 @@ export function createHologram(root, options = {}) {
       '<div class="sys">' + esc(p.sys) + " · fits " + esc(carLabel(vehicle)) + (vehicle.engine ? " " + esc(vehicle.engine) : "") + "</div>" +
       (health ? healthLine(p.id) : "") +
       tiers(p) +
+      (demo ? "" : quoteBox(p)) +
       '<div class="buy">' + buyLinks(p, vehicle, { primary: "holo-btn warm holo-buy-main", secondary: "holo-btn ghost" }) + "</div>" +
       '<div class="minis">' +
         '<div><span class="hud">Service</span><br>' + esc(p.every) + "</div>" +
@@ -300,13 +340,18 @@ export function createHologram(root, options = {}) {
     root.dataset.mode = mode;
     $("[data-car]").textContent = carLabel(vehicle);
     $("[data-count]").textContent = Object.keys(partMeshes).length;
-    crumbs.innerHTML = TABS.filter(([key]) => has(key)).map(([key, label]) =>
-      '<button type="button" data-go="' + key + '"' + (key === level ? ' class="here" aria-current="page"' : "") + ">" + label + "</button>").join("");
-    const here = crumbs.querySelector(".here");
-    if (here && crumbs.scrollWidth > crumbs.clientWidth) crumbs.scrollLeft = here.offsetLeft - 40;
-    strip.hidden = demo || mode === "car" || mode === "part";
+    $("[data-view]").textContent = (TABS.find(([key]) => key === level) || TABS[0])[1];
+    menu.innerHTML = TABS.filter(([key]) => has(key)).map(([key, label]) =>
+      '<button type="button" role="menuitemradio" data-go="' + key + '" aria-checked="' + (key === level) + '"><span class="tick" aria-hidden="true">' + (key === level ? "●" : "") + "</span>" + label +
+      (key === "car" ? "" : '<span class="n">' + LISTS()[key].length + "</span>") + "</button>").join("");
+    const nq = quoteItems.length;
+    quoteBtn.hidden = demo;
+    quoteBtn.textContent = nq ? "Quote · " + nq + " · " + money(Math.round(currentQuote().total)) : "Quote";
+    quoteBtn.setAttribute("aria-pressed", String(quoteOpen));
+    strip.hidden = demo || mode === "car" || mode === "part" || quoteOpen;
     if (!strip.hidden) renderStrip();
-    panel.hidden = mode !== "part";
+    panel.hidden = mode !== "part" && !quoteOpen;
+    if (quoteOpen) renderQuote();
     carToggle.hidden = demo || mode === "part" || mode === "car" || mode === "body";
     carToggle.setAttribute("aria-pressed", String(showCar));
     carToggle.textContent = showCar ? "Car: shown" : "Car: hidden";
@@ -318,9 +363,140 @@ export function createHologram(root, options = {}) {
     legend.hidden = healthToggle.hidden || !healthOn;
     hint.textContent = "Drag to orbit · Tap any part · Pick a view above";
   }
-  crumbs.addEventListener("click", function (e) { const b = e.target.closest("[data-go]"); if (b) setMode(b.dataset.go); });
+
+  /* ---- view menu ---- */
+  function openMenu(focusFirst) {
+    menu.hidden = false; viewBtn.setAttribute("aria-expanded", "true");
+    if (focusFirst) (menu.querySelector('[aria-checked="true"]') || menu.querySelector("button")).focus();
+  }
+  function closeMenu(focusBtn) {
+    if (menu.hidden) return;
+    menu.hidden = true; viewBtn.setAttribute("aria-expanded", "false");
+    if (focusBtn) viewBtn.focus();
+  }
+  viewBtn.addEventListener("click", function () { if (menu.hidden) openMenu(false); else closeMenu(false); });
+  viewBtn.addEventListener("keydown", function (e) { if (e.key === "ArrowDown") { e.preventDefault(); openMenu(true); } });
+  menu.addEventListener("click", function (e) {
+    const b = e.target.closest("[data-go]"); if (!b) return;
+    closeMenu(true);
+    if (quoteOpen) { quoteOpen = false; }
+    setMode(b.dataset.go);
+  });
+  menu.addEventListener("keydown", function (e) {
+    const items = [...menu.querySelectorAll("button")], i = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); items[(i + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length].focus(); }
+    else if (e.key === "Home" || e.key === "End") { e.preventDefault(); items[e.key === "Home" ? 0 : items.length - 1].focus(); }
+    else if (e.key === "Tab") closeMenu(false);
+  });
+  function onDocDown(e) { if (!menu.hidden && !e.target.closest(".holo-views")) closeMenu(false); }
+  document.addEventListener("pointerdown", onDocDown);
+
+  /* ---- repair quote ---- */
+  // Items are kept per car in this browser; the rate, tax and part grade are remembered for every car.
+  const QUOTE_SETTINGS = "vinsight.quote.settings", quoteKey = () => "vinsight.quote." + carLabel(vehicle);
+  const readJson = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k) || "null"); return v == null ? d : v; } catch (e) { return d; } };
+  const writeJson = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* storage blocked: quote lasts this visit */ } };
+  let qset = Object.assign({}, DEFAULTS, readJson(QUOTE_SETTINGS, {}));
+  let quoteItems = demo ? [] : readJson(quoteKey(), []).filter((i) => byId[i.id]);
+  let quoteOpen = false;
+  const qopts = () => ({ rate: Number(qset.rate) || DEFAULTS.rate, tax: qset.tax, vehicle });
+  const currentQuote = () => quote(quoteItems, qopts());
+  function saveQuote() { writeJson(quoteKey(), quoteItems); writeJson(QUOTE_SETTINGS, qset); }
+  const inQuote = (id) => quoteItems.find((i) => i.id === id);
+
+  function quoteAdd(id) {
+    const p = byId[id];
+    if (!inQuote(id)) quoteItems.push({ id, qty: 1, tier: qset.tier });
+    saveQuote(); renderUI();
+    if (mode === "part" && !quoteOpen) renderPanel(p);
+  }
+  function quoteBox(p) {
+    const l = quoteLine({ id: p.id, qty: 1, tier: qset.tier }, qopts()), added = inQuote(p.id);
+    return '<div class="q-add"><div class="q-est">Shop estimate<b>' + money(Math.round(l.total)) + "</b>" +
+      "<span>" + money(Math.round(l.parts)) + " part + " + l.hours + " h labor" + (l.extras.length ? " + " + l.extras.map((e) => e.label.replace(/ \(.*/, "").toLowerCase()).join(", ") : "") + " at $" + qopts().rate + "/h</span></div>" +
+      (added ? '<button type="button" class="holo-btn ghost" data-quote-open>In quote ›</button>'
+             : '<button type="button" class="holo-btn warm" data-quote-add="' + p.id + '">Add to quote</button>') + "</div>";
+  }
+  function renderQuote() {
+    const q = currentQuote(), r = qopts().rate;
+    const rateOpts = RATES.map((x) => '<option value="' + x.rate + '"' + (x.rate === r ? " selected" : "") + ">" + x.label + " · $" + x.rate + "/h</option>").join("") +
+      (RATES.some((x) => x.rate === r) ? "" : '<option value="' + r + '" selected>Custom · $' + r + "/h</option>");
+    let h = '<button type="button" class="back" data-quote-close>‹ ' + (mode === "part" ? "Back to " + esc(byId[partId].name) : "Close quote") + "</button>" +
+      '<h3 tabindex="-1">Repair quote</h3><div class="sys">' + esc(carLabel(vehicle)) + (vehicle.engine ? " " + esc(vehicle.engine) : "") + "</div>";
+    if (!q.lines.length) {
+      return (panel.innerHTML = h + '<p class="q-empty">Open any part and tap <b>Add to quote</b>. The quote adds up parts, book labor hours at your shop\'s rate, and the extras shops charge.</p>');
+    }
+    h += '<div class="q-set"><label>Shop labor rate<select data-q="rate">' + rateOpts + '<option value="custom">Custom rate…</option></select></label>' +
+      '<label>Sales tax on parts (%)<input data-q="tax" type="number" inputmode="decimal" min="0" max="15" step="0.25" value="' + esc(qset.tax) + '"></label></div>';
+    q.lines.forEach((l) => {
+      h += '<div class="q-row"><span class="nm">' + esc(l.name) + '</span><span class="amt">' + money(Math.round(l.total)) + "</span>" +
+        '<div class="sub"><span>Parts: ' + TIER_NAMES[l.tier] + " × " + l.qty + (l.unit ? " " + esc(l.unit) : "") + "</span><span>" + money(Math.round(l.parts)) + "</span>" +
+        "<span>Labor: " + l.hours + " h × $" + r + "</span><span>" + money(Math.round(l.labor)) + "</span>" +
+        l.extras.map((e) => "<span>" + esc(e.label) + "</span><span>" + money(Math.round(e.amount)) + "</span>").join("") + "</div>" +
+        '<div class="ctl"><span class="q-step"><button type="button" data-qty="' + l.id + '" data-d="-1" aria-label="One fewer ' + esc(l.name) + '">−</button><span>' + l.qty + '</span><button type="button" data-qty="' + l.id + '" data-d="1" aria-label="One more ' + esc(l.name) + '">+</button></span>' +
+        '<select data-tier="' + l.id + '" aria-label="Part grade for ' + esc(l.name) + '">' + TIER_NAMES.map((n, i) => '<option value="' + i + '"' + (i === l.tier ? " selected" : "") + ">" + n + "</option>").join("") + "</select>" +
+        '<button type="button" class="q-x" data-remove="' + l.id + '">Remove</button></div></div>';
+    });
+    h += '<div class="q-tot"><span>Parts</span><span>' + money(Math.round(q.parts)) + "</span>" +
+      "<span>Labor (" + q.hours + " h)</span><span>" + money(Math.round(q.labor)) + "</span>" +
+      "<span>Shop supplies</span><span>" + money(Math.round(q.supplies)) + "</span>" +
+      "<span>Tax on parts</span><span>" + money(Math.round(q.tax)) + "</span>" +
+      '<span class="big">Estimated total</span><span class="big">' + money(Math.round(q.total)) + "</span></div>" +
+      '<p class="fine">Most shops will land between ' + money(Math.round(q.low)) + " and " + money(Math.round(q.high)) + ". Labor uses typical book hours for your engine; ask a shop to quote with their labor guide before you approve work.</p>" +
+      '<div class="q-acts"><button type="button" class="holo-btn warm" data-quote-copy>Copy quote</button><button type="button" class="holo-btn ghost" data-quote-clear>Clear</button></div>';
+    panel.innerHTML = h;
+  }
+  function quoteText() {
+    const q = currentQuote(), r = qopts().rate;
+    return ["Repair quote: " + carLabel(vehicle) + (vehicle.engine ? " " + vehicle.engine : ""), ""].concat(
+      q.lines.map((l) => l.name + " (" + TIER_NAMES[l.tier] + " × " + l.qty + "): parts " + money(Math.round(l.parts)) + ", labor " + l.hours + " h " + money(Math.round(l.labor)) +
+        l.extras.map((e) => ", " + e.label.toLowerCase() + " " + money(Math.round(e.amount))).join("") + " = " + money(Math.round(l.total))),
+      ["", "Parts " + money(Math.round(q.parts)), "Labor " + q.hours + " h at $" + r + "/h " + money(Math.round(q.labor)), "Shop supplies " + money(Math.round(q.supplies)),
+       "Tax " + money(Math.round(q.tax)), "Estimated total " + money(Math.round(q.total)) + " (likely " + money(Math.round(q.low)) + "–" + money(Math.round(q.high)) + ")"]).join("\n");
+  }
+  function setQuoteOpen(on) {
+    quoteOpen = on; closeMenu(false);
+    if (!on && mode === "part") renderPanel(byId[partId]);
+    renderUI(); resize(true); updateShift();
+    if (on || mode === "part") panel.querySelector("h3").focus({ preventScroll: true });
+    else quoteBtn.focus();
+  }
+  quoteBtn.addEventListener("click", function () { setQuoteOpen(!quoteOpen); });
+  panel.addEventListener("click", function (e) {
+    const t = e.target.closest("button"); if (!t) return;
+    if (t.dataset.quoteAdd) quoteAdd(t.dataset.quoteAdd);
+    else if (t.hasAttribute("data-quote-open")) setQuoteOpen(true);
+    else if (t.hasAttribute("data-quote-close")) setQuoteOpen(false);
+    else if (t.dataset.qty) {
+      const it = inQuote(t.dataset.qty); it.qty = Math.min(20, Math.max(1, (it.qty || 1) + Number(t.dataset.d)));
+      saveQuote(); renderUI();
+    } else if (t.dataset.remove) {
+      quoteItems = quoteItems.filter((i) => i.id !== t.dataset.remove); saveQuote(); renderUI(); panel.querySelector("h3").focus();
+    } else if (t.hasAttribute("data-quote-clear")) {
+      quoteItems = []; saveQuote(); renderUI();
+    } else if (t.hasAttribute("data-quote-copy")) {
+      const done = () => { t.textContent = "Copied"; setTimeout(() => { t.textContent = "Copy quote"; }, 1600); };
+      if (navigator.clipboard) navigator.clipboard.writeText(quoteText()).then(done, () => { t.textContent = "Copy failed"; });
+    }
+  });
+  panel.addEventListener("change", function (e) {
+    const t = e.target;
+    if (t.dataset.tier) { inQuote(t.dataset.tier).tier = Number(t.value); qset.tier = Number(t.value); }
+    else if (t.dataset.q === "rate") {
+      if (t.value === "custom") {
+        const v = Number(window.prompt("Your shop's hourly labor rate in dollars", String(qopts().rate)));
+        if (v > 0 && v < 1000) qset.rate = Math.round(v);
+      } else qset.rate = Number(t.value);
+    } else if (t.dataset.q === "tax") { const v = Number(t.value); qset.tax = v >= 0 && v <= 15 ? v : DEFAULTS.tax; }
+    else return;
+    saveQuote(); renderUI();
+  });
+
   function onKey(e) {
-    if (demo || e.key !== "Escape" || mode === "car") return;
+    if (demo || e.key !== "Escape") return;
+    if (!menu.hidden) { closeMenu(true); return; }
+    if (quoteOpen) { setQuoteOpen(false); return; }
+    if (mode === "car") return;
     const r = root.getBoundingClientRect(); if (r.bottom < 0 || r.top > window.innerHeight) return;
     setMode(mode === "part" ? levelOf(partId) : mode === "inside" ? "bay" : "car");
   }
@@ -392,14 +568,14 @@ export function createHologram(root, options = {}) {
   let shift = { x: 0, y: 0 }, shiftGoal = { x: 0, y: 0 };
   function updateShift() {
     shiftGoal = { x: 0, y: 0 };
-    if (mode !== "part") return;
+    if (mode !== "part" && !quoteOpen) return;
     if (root.classList.contains("is-stacked")) shiftGoal.y = (panel.offsetHeight + 10) / 2;
     else shiftGoal.x = (panel.offsetWidth + 14) / 2;
   }
 
   function setMode(m, id, focusPanel) {
     if (m === "part" ? !partMeshes[id] || !has(levelOf(id)) : !has(m)) return;
-    mode = m; partId = m === "part" ? id : null;
+    mode = m; partId = m === "part" ? id : null; quoteOpen = false; closeMenu(false);
     tip.hidden = true; hoverId = null; // a name from the previous view shouldn't linger
     controls.autoRotate = !reduce && m !== "part"; controls.autoRotateSpeed = m === "car" || m === "body" ? 0.7 : 0.35;
     orbitLimits(levelNow());
@@ -584,7 +760,7 @@ export function createHologram(root, options = {}) {
     const a = el.getBoundingClientRect(), b = root.getBoundingClientRect();
     return { x: a.left - b.left + a.width / 2, y: a.top - b.top + a.height / 2 };
   }
-  function tabPoint(key) { const el = crumbs.querySelector('[data-go="' + key + '"]'); return el ? elementPoint(el) : { x: 40, y: 50 }; }
+  function viewPoint(key) { const el = menu.querySelector('[data-go="' + key + '"]'); return el ? elementPoint(el) : { x: 60, y: 120 }; }
   // Each loop shows one of: the engine bay, inside the engine, or the underside on the lift.
   async function runTour(token) {
     let n = 0;
@@ -597,7 +773,10 @@ export function createHologram(root, options = {}) {
       await sleep(token, 2600);
       let id, s = 2;
       if (kind === "under") {
-        await moveCursor(token, tabPoint("under"));
+        await moveCursor(token, elementPoint(viewBtn));
+        openMenu(false);
+        await sleep(token, 500);
+        await moveCursor(token, viewPoint("under"));
         setMode("under");
         say("02 / Lift it", "Look underneath", "Brakes, suspension, exhaust and the fuel system.");
         await sleep(token, 3800);
@@ -657,7 +836,9 @@ export function createHologram(root, options = {}) {
   const shape = (v) => [styleOf(v), JSON.stringify(dimsFor(v)), v.cylinders || "", v.year || "", v.drive || "", isElectric(v)].join("|");
   function setVehicle(v) {
     const rebuild = shape(v) !== shape(vehicle);
+    const sameCar = carLabel(v) === carLabel(vehicle);
     vehicle = Object.assign({}, v);
+    if (!sameCar && !demo) { quoteItems = readJson(quoteKey(), []).filter((i) => byId[i.id]); quoteOpen = false; }
     if (rebuild) {
       if (mode !== "car") setMode("car");
       buildAll();
@@ -679,6 +860,7 @@ export function createHologram(root, options = {}) {
     cancelAnimationFrame(raf);
     ro.disconnect(); io.disconnect();
     document.removeEventListener("keydown", onKey);
+    document.removeEventListener("pointerdown", onDocDown);
     controls.dispose();
     disposeTree(scene);
     env.dispose();
