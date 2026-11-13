@@ -3,10 +3,12 @@
 // so tapping still works. If a file fails to load, the code-built part simply stays visible.
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 
 const loader = new GLTFLoader();
+loader.setMeshoptDecoder(MeshoptDecoder); // the engine models are meshopt-compressed
 const cache = {};
-function load(url) {
+export function load(url) {
   if (!cache[url]) cache[url] = loader.loadAsync(url).then((g) => { g.scene.updateMatrixWorld(true); return g.scene; });
   return cache[url];
 }
@@ -18,6 +20,7 @@ function viewerMaterial(src) {
     map: src.map || null, normalMap: src.normalMap || null,
     roughnessMap: src.roughnessMap || null, metalnessMap: src.metalnessMap || null,
     roughness: src.roughness == null ? 0.5 : src.roughness, metalness: src.metalness == null ? 0.5 : src.metalness,
+    vertexColors: !!src.vertexColors, // scanned parts carry their colour per vertex
   });
   m.transparent = true;
   m.side = THREE.DoubleSide;
@@ -26,7 +29,7 @@ function viewerMaterial(src) {
 }
 
 // Copies of the model's meshes chosen by `keep`, baked into the model's own frame, as one group.
-function pick(scene, keep, recolor) {
+export function pick(scene, keep, recolor) {
   const out = new THREE.Group();
   scene.traverse(function (o) {
     // some files ship a hidden display stand; it would throw off the fit
@@ -41,7 +44,7 @@ function pick(scene, keep, recolor) {
 }
 
 // Put `model` (in its own frame) under `holder` so it lands at `world` (a matrix in the holder's parent frame).
-function attach(holder, model, world, id) {
+export function attach(holder, model, world, id) {
   holder.updateMatrix();
   const local = new THREE.Matrix4().copy(holder.matrix).invert().multiply(world);
   const wrap = new THREE.Group();
@@ -50,7 +53,7 @@ function attach(holder, model, world, id) {
   wrap.traverse((o) => { o.userData.id = id; });
   holder.add(wrap);
 }
-function hide(obj) { obj.traverse((o) => { if (o.isMesh && !o.userData.hero) o.material.visible = false; }); }
+export function hide(obj) { obj.traverse((o) => { if (o.isMesh && !o.userData.hero) o.material.visible = false; }); }
 
 /** Brake corners: the downloaded disc on each rotor and its caliper on the matching caliper part. */
 async function brakes(parts, url) {

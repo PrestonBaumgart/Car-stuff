@@ -8,6 +8,7 @@ import { PARTS, byId, buyLinks, carLabel, esc, money, tiers, wrenches } from "./
 import { DEFAULTS, RATES, TIER_NAMES, quote, quoteLine } from "./quote.js";
 import { dimsFor } from "./car-dims.js";
 import { applyPartModels } from "./part-models.js";
+import { applyEngineModels } from "./engine-models.js";
 import { addBody, showCode } from "./body-model.js";
 import { bodyFor, BODY_NOTE } from "./car-bodies.js";
 import { buildCar, buildEngine, buildGarage, buildLift, repaint, setVisibility, styleFor } from "./car-model.js";
@@ -293,6 +294,13 @@ export function createHologram(root, options = {}) {
       });
     }
   }
+  // the detailed engine models load the first time the engine bay or the inside of the engine is opened for this car
+  let engineFitted = null;
+  function loadEngineModels() {
+    if (!options.partsUrl || !car || engineFitted === car || isElectric(vehicle)) return;
+    const forCar = engineFitted = car;
+    applyEngineModels(partMeshes, options.partsUrl + "engine/", { cylinders: vehicle.cylinders, year: vehicle.year }, () => !destroyed && car === forCar);
+  }
   const LISTS = () => ({ bay: BAY, inside: INSIDE, under: UNDER, body: BODY });
   const has = (level) => level === "car" || LISTS()[level].length > 0;
 
@@ -568,7 +576,9 @@ export function createHologram(root, options = {}) {
     else if (level === "body") dir.y = Math.min(0.6, Math.max(dir.y, 0.15));
     else dir.y = Math.max(dir.y, 0.4);
     dir.normalize();
-    const d = Math.min(3.2, Math.max(1.5, r * 6)) * (narrow() ? 1.3 : 1);
+    // engine parts are small and detailed: the camera may come closer to them than to the rest of the car
+    const nearest = level === "bay" || level === "inside" ? 0.8 : 1.5;
+    const d = Math.min(3.2, Math.max(nearest, r * 6)) * (narrow() ? 1.3 : 1);
     return { t: c, p: c.clone().addScaledVector(dir, d) };
   }
   // Looking up from under the lift needs the camera below its target; everywhere else it stays above.
@@ -597,6 +607,8 @@ export function createHologram(root, options = {}) {
   function setMode(m, id, focusPanel) {
     if (m === "part" ? !partMeshes[id] || !has(levelOf(id)) : !has(m)) return;
     mode = m; partId = m === "part" ? id : null; quoteOpen = false; closeMenu(false);
+    const lvl = m === "part" ? levelOf(id) : m;
+    if (lvl === "bay" || lvl === "inside") loadEngineModels();
     tip.hidden = true; hoverId = null; // a name from the previous view shouldn't linger
     controls.autoRotate = !reduce && m !== "part"; controls.autoRotateSpeed = m === "car" || m === "body" ? 0.7 : 0.35;
     orbitLimits(levelNow());

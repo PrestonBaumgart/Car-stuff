@@ -19,6 +19,9 @@ export function buildCar(options: {
   cylinders?: string | number | null; drive?: string | null; electric?: boolean;
 }): { group: Object3DLike; body: Object3DLike[]; panels: Object3DLike[]; chassis: Object3DLike[] };
 
+/** Build the engine (inline or V, 3 to 12 cylinders). Only used from tests in TypeScript; the app uses it through hologram.js. */
+export function buildEngine(spec: { cylinders?: string | number | null; year?: number | null }): { group: Object3DLike; parts: Object3DLike[]; decor: Object3DLike[]; inside: Object3DLike[] };
+
 /** Fade (vis 0-1) and highlight everything inside obj. */
 export function setVisibility(obj: Object3DLike, vis: number, glow: number, glowColor?: number): void;
 
