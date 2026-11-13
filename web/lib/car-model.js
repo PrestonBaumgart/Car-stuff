@@ -1189,7 +1189,10 @@ export function buildEngine(spec) {
   ], null, [0, 0, 0.5]), [0.3, -0.16, -0.15], [0.32, -0.16, -0.12]);
   const manifold = [mesh(cyl(0.035, 0.5, 24), "exhaust", [ex * 0.37, -0.05, 0], RX)];
   zs.forEach((z) => manifold.push(mesh(tube([[ex * (vee ? 0.27 : 0.15), 0.2, z], [ex * 0.33, 0.1, z], [ex * 0.37, -0.03, z * 0.9]], 0.022, false, 16), "exhaust")));
-  place("manifold", group(manifold), [0, 0, 0], [ex * 0.12, -0.04, 0]);
+  const manifoldGroup = group(manifold);
+  // for the detailed manifold: where the runners meet the head, which way the head is (+x when ex < 0), port spacing
+  manifoldGroup.userData.port = { at: [ex * (vee ? 0.27 : 0.15), 0.2, 0], head: -ex, spacing: zs.length > 1 ? zs[1] - zs[0] : 0.14 };
+  place("manifold", manifoldGroup, [0, 0, 0], [ex * 0.12, -0.04, 0]);
   place("o2", group([
     mesh(cyl(0.012, 0.07, 16), "steel"),
     mesh(cyl(0.018, 0.02, 6), "steel", [0, -0.02, 0]),
@@ -1215,7 +1218,10 @@ export function buildEngine(spec) {
   /* ---- internals: the rotating assembly and valvetrain, hidden inside the block until the engine is opened ---- */
   const crankC = new THREE.Vector3(0, -0.12, 0), throwR = 0.04, rodLen = 0.19;
   const crankParts = [mesh(cyl(0.022, 0.62, 24), "steel", [0, crankC.y, 0], RX)];
-  crankParts.push(mesh(cyl(0.09, 0.02, 48), "darkSteel", [0, crankC.y, az > 0 ? -0.32 : 0.32], RX)); // flywheel flange (transmission end)
+  const flange = mesh(cyl(0.09, 0.02, 48), "darkSteel", [0, crankC.y, az > 0 ? -0.32 : 0.32], RX); // flywheel flange (transmission end)
+  flange.userData.flange = true; // stays when the detailed crank replaces the rest
+  crankParts.push(flange);
+  const spacing = zs.length > 1 ? zs[1] - zs[0] : 0.14;
   banks.forEach(function (s, bi) {
     const lean = vee ? s * 0.3 : 0;
     const u = new THREE.Vector3(Math.sin(lean), Math.cos(lean), 0); // cylinder axis
@@ -1245,6 +1251,7 @@ export function buildEngine(spec) {
         mesh(new THREE.TorusGeometry(0.024, 0.008, 10, 24), "darkSteel", [pin.x, pin.y, zc]),
         mesh(new THREE.TorusGeometry(0.013, 0.006, 10, 20), "darkSteel", [wrist.x, wrist.y, zc]),
       ]);
+      rodObj.userData.pin = pin.clone(); rodObj.userData.wrist = wrist.clone(); // in the group's frame, for the detailed rod model
       place("rods", rodObj, [0, 0, 0], [u.x * 0.02, -0.08, 0], inside);
 
       // piston with wrist pin; rings ride in its grooves
@@ -1284,10 +1291,15 @@ export function buildEngine(spec) {
       const camParts = [mesh(cyl(0.011, 0.58, 16), "steel", null, RX)];
       zs.forEach((z) => [-0.012, 0.012].forEach((dz) => camParts.push(mesh(rbox(0.03, 0.022, 0.01, 0.009), "steel", [0.006, 0, z + dz], [0, 0, side * 0.6 + dz * 40]))));
       const at = deck.clone().addScaledVector(u, 0.12).addScaledVector(v, side * 0.022);
-      place("cam", group(camParts, null, rot), [at.x, at.y, 0], [u.x * 0.6 + v.x * side * 0.05, u.y * 0.6, 0], inside);
+      const cam = group(camParts, null, rot);
+      cam.userData.cam = { spacing, radius: 0.022 }; // for the detailed cam model: lobe pairs one spacing apart
+      place("cam", cam, [at.x, at.y, 0], [u.x * 0.6 + v.x * side * 0.05, u.y * 0.6, 0], inside);
     });
   });
-  place("crank", group(crankParts), [0, 0, 0], [0, -0.22, 0], inside);
+  const crankGroup = group(crankParts);
+  // for the detailed crank model: throws one spacing apart along z, pins throwR off the axis, flywheel at flywheelZ
+  crankGroup.userData.crank = { spacing, throw: throwR, axisY: crankC.y, flywheelZ: az > 0 ? -1 : 1 };
+  place("crank", crankGroup, [0, 0, 0], [0, -0.22, 0], inside);
 
   return { group: engine, parts, decor, inside };
 }
