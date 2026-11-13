@@ -739,7 +739,8 @@ export function createHologram(root, options = {}) {
     };
     // a real body stands in for the code-built shell, which stays only as invisible pick targets
     bodyParts.forEach((o) => setVisibility(o, realBody ? 0 : shell, 0));
-    if (realBody) setVisibility(realBody, shell, 0);
+    // the real body is solid when shown in full; it falls off faster than the shell so the ghost in the other views stays faint
+    if (realBody) setVisibility(realBody, shell * (0.4 + 0.6 * shell), 0);
     setVisibility(hood, 1, 0); // invisible pick target
     const lit = [];
     panels.forEach(function (o) {

@@ -51,3 +51,6 @@ export function fitRegionToBody<R extends Region | null>(region: R, model: Objec
 export function regionInWorld(region: Region, matrix: unknown): Region;
 /** Light up the real body in the given world-space regions (none switches it off). */
 export function highlightBody(model: Object3DLike, regions: Region[], color: number, amount: number): void;
+
+/** The real body's paint: solid gloss white. */
+export const BODY_PAINT: { color: number; opacity: number; metalness: number; roughness: number; clearcoat: number; clearcoatRoughness: number };
