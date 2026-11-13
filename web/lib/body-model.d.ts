@@ -36,3 +36,18 @@ export function showCode(obj: Object3DLike, on: boolean): void;
 /** three.js objects (three has no TypeScript types installed here). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Object3DLike = any;
+
+/** How many panel regions each of the real body's looks can light at once. */
+export const HI_MAX: number;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Region = { box: any; plane: any; lo: number; hi: number; depth?: number; looks?: string[] };
+/** Swap every material in body for the see-through look its name asks for, each able to light up panel regions. */
+export function applyLooks<T extends Object3DLike>(body: T): T;
+/** The spot on the real body a code-built panel stands for, in the car group's frame; null for an empty panel. */
+export function panelRegion(car: Object3DLike, obj: Object3DLike, pad?: number[]): Region | null;
+/** Move a region's depth band onto the real body's outer skin (of the region's looks when it has any there). */
+export function fitRegionToBody<R extends Region | null>(region: R, model: Object3DLike, car: Object3DLike, margin?: number): R;
+/** A region carried into world space by the car group's matrix. */
+export function regionInWorld(region: Region, matrix: unknown): Region;
+/** Light up the real body in the given world-space regions (none switches it off). */
+export function highlightBody(model: Object3DLike, regions: Region[], color: number, amount: number): void;
