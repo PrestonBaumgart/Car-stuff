@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // three ships without TypeScript types in this project
 // @ts-expect-error untyped module
-import { Box3, BoxGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from "three";
-import { addBody, codeBox, fitBody, placeBody } from "./body-model.js";
+import { Box3, BoxGeometry, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from "three";
+import { HI_MAX, addBody, applyLooks, codeBox, fitBody, fitRegionToBody, highlightBody, panelRegion, placeBody, regionInWorld } from "./body-model.js";
 import { dimsFor } from "./car-dims.js";
 import { buildCar, setVisibility } from "./car-model.js";
 
@@ -176,5 +176,68 @@ describe("addBody with a body file", () => {
     const children = built.group.children.length;
     expect(await addBody(built.group, built.body.concat(built.panels), tinyBody(), () => false)).toBeNull();
     expect(built.group.children.length).toBe(children);
+  });
+});
+
+describe("panel highlights on the real body", () => {
+  // a code-built door: a 1 x 0.5 m sheet at z = 0.8, its triangles wound either way
+  function door(facing: number) {
+    const g = new PlaneGeometry(1, 0.5);
+    if (facing < 0) g.rotateY(Math.PI);
+    const m = new Mesh(g, new MeshBasicMaterial());
+    m.position.set(0.2, 0.6, 0.8);
+    m.userData.rest = m.position.clone();
+    return m;
+  }
+  // a real body: an outer skin at z = 0.86 and, behind it, an inner trim sheet facing the same way
+  function realBody(skinLook = "paint") {
+    const sheet = (z: number, name: string) => { const m = new Mesh(new PlaneGeometry(1.2, 0.6), new MeshBasicMaterial()); m.material.name = name; m.position.set(0.2, 0.6, z); return m; };
+    const g = new Group();
+    g.add(sheet(0.86, skinLook === "paint" ? "" : skinLook), sheet(0.62, ""));
+    return applyLooks(g);
+  }
+  const car = () => { const c = new Group(); c.updateMatrixWorld(true); return c; };
+
+  it.each([1, -1])("faces the region away from the car whichever way the panel is wound (%i)", (facing) => {
+    const c = car(), d = door(facing); c.add(d);
+    const r = panelRegion(c, d)!;
+    expect(r.plane.normal.z).toBeCloseTo(1, 6);
+    expect(r.box.containsPoint(new Vector3(0.2, 0.6, 0.95))).toBe(true);
+  });
+
+  it("moves the band onto the real skin and leaves the trim behind it out", () => {
+    const c = car(), d = door(1); c.add(d);
+    const body = realBody(); c.add(body);
+    const r = fitRegionToBody(Object.assign(panelRegion(c, d)!, { looks: ["paint"] }), body, c);
+    const skin = r.plane.distanceToPoint(new Vector3(0.2, 0.6, 0.86)), trim = r.plane.distanceToPoint(new Vector3(0.2, 0.6, 0.62));
+    expect(skin).toBeGreaterThanOrEqual(r.lo);
+    expect(skin).toBeLessThanOrEqual(r.hi);
+    expect(trim).toBeLessThan(r.lo);
+  });
+
+  it("falls back to any look when the body has none of the region's own there", () => {
+    const c = car(), d = door(1); c.add(d);
+    const body = realBody(); c.add(body);
+    const r = fitRegionToBody(Object.assign(panelRegion(c, d)!, { looks: ["lamp"] }), body, c);
+    expect(r.hi).toBeCloseTo(0.06 + 0.03, 6);
+  });
+
+  it("lights only the looks a region names, and switches off with no regions", () => {
+    const body = realBody("glass");
+    const c = car(), d = door(1); c.add(d);
+    const region = regionInWorld(Object.assign(panelRegion(c, d)!, { looks: ["glass"] }), c.matrixWorld);
+    highlightBody(body, [region], 0xffb02e, 0.6);
+    expect(body.userData.hi.glass.amount.value).toBe(0.6);
+    expect(body.userData.hi.paint.amount.value).toBe(0);
+    expect(body.userData.hi.glass.min[0].z).toBeCloseTo(region.box.min.z, 6);
+    highlightBody(body, [], 0xffb02e, 0.6);
+    expect(body.userData.hi.glass.amount.value).toBe(0);
+  });
+
+  it(`takes at most ${HI_MAX} regions per look`, () => {
+    const body = realBody(), c = car(), d = door(1); c.add(d);
+    const r = regionInWorld(Object.assign(panelRegion(c, d)!, { looks: ["paint"] }), c.matrixWorld);
+    expect(() => highlightBody(body, Array(HI_MAX + 2).fill(r), 0xffb02e, 0.5)).not.toThrow();
+    expect(body.userData.hi.paint.min).toHaveLength(HI_MAX);
   });
 });

@@ -9,7 +9,7 @@ import { DEFAULTS, RATES, TIER_NAMES, quote, quoteLine } from "./quote.js";
 import { dimsFor } from "./car-dims.js";
 import { applyPartModels } from "./part-models.js";
 import { applyEngineModels } from "./engine-models.js";
-import { addBody, showCode } from "./body-model.js";
+import { addBody, fitRegionToBody, highlightBody, panelRegion, regionInWorld, showCode } from "./body-model.js";
 import { bodyFor, BODY_NOTE } from "./car-bodies.js";
 import { buildCar, buildEngine, buildGarage, buildLift, repaint, setVisibility, styleFor } from "./car-model.js";
 
@@ -143,6 +143,16 @@ const CSS = `
 const CURSOR = '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 2 L3 19 L8 14.5 L11.5 22 L14.5 20.6 L11 13.3 L17.5 13.3 Z" fill="#e8eefb" stroke="#070b14" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 
 const AMBER = 0xffb02e;
+// Body panels that light up their own spot on the real body when hovered or picked: which of its looks they light
+// (paint, glass, lamp lenses, black trim) and, where the code draws the part smaller than real bodies have it, how much
+// room to give it ([x, y, z] metres). Small add-ons (mirrors, handles, wipers…) keep showing their code-built part.
+const PAINT = { looks: ["paint"] }, GLASS = { looks: ["glass"] };
+const REGION = {
+  doorF: PAINT, doorR: PAINT, fender: PAINT, quarter: PAINT, hoodpanel: PAINT, trunk: PAINT, bed: PAINT,
+  bumperF: { looks: ["paint"], pad: [0.03, 0.12, 0.03] }, bumperR: { looks: ["paint"], pad: [0.03, 0.12, 0.03] }, grille: { looks: ["trim", "paint"] },
+  windshield: GLASS, rearglass: GLASS, sideglass: GLASS,
+  headlamp: { looks: ["lamp"], pad: [0.1, 0.1, 0.1] }, taillamp: { looks: ["lamp"], pad: [0.1, 0.1, 0.1] },
+};
 // Part health colors (see web/lib/part-health.ts) and the viewer's on/off choice, remembered in this browser.
 const HEALTH_COLOR = { good: 0x22c55e, watch: 0xff8a1f, replace: 0xef2b3a, unknown: 0x8b95a5 };
 const HEALTH_LABEL = { good: "Recently serviced", watch: "Getting old: take a look", replace: "Replace soon", unknown: "No record" };
@@ -290,7 +300,15 @@ export function createHologram(root, options = {}) {
       const forCar = car;
       const current = () => !destroyed && car === forCar; // a vehicle change rebuilds the car while this loads
       addBody(car, bodyParts.concat(panels), options.partsUrl + "cars/" + real.file, current).then(function (model) {
-        if (model && current()) { realBody = model; bodyNote.hidden = false; }
+        if (!model || !current()) return;
+        realBody = model; bodyNote.hidden = false;
+        // shell panels light up their own spot on the real body instead of showing the code-built panel
+        panels.forEach(function (o) {
+          const spec = REGION[o.userData.id];
+          if (!spec) return;
+          const region = panelRegion(car, o, spec.pad);
+          if (region) o.userData.region = fitRegionToBody(Object.assign(region, { looks: spec.looks }), model, car);
+        });
       });
     }
   }
@@ -723,9 +741,12 @@ export function createHologram(root, options = {}) {
     bodyParts.forEach((o) => setVisibility(o, realBody ? 0 : shell, 0));
     if (realBody) setVisibility(realBody, shell, 0);
     setVisibility(hood, 1, 0); // invisible pick target
+    const lit = [];
     panels.forEach(function (o) {
       const id = o.userData.id, mine = focus && level === "body" && id === partId, on = hot(id, "body");
-      o.userData.pop = go(o.userData.pop || 0, mine ? 1 : 0, 3);
+      const region = realBody && o.userData.region;
+      if (region && (mine || on)) lit.push(regionInWorld(region, car.matrixWorld));
+      o.userData.pop = go(o.userData.pop || 0, mine && !region ? 1 : 0, 3);
       o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, o.userData.pop);
       let vis = mine ? 1 : shell;
       if (realBody) {
@@ -735,14 +756,16 @@ export function createHologram(root, options = {}) {
           const picked = (focus && level === "body" && isWheel(partId)) || isWheel(hoverId);
           if (picked) vis = focus ? 1 : vis;
           else if (level !== "under") vis = 0;
-        } else if (o.userData.codeOn !== (mine || on)) {
-          // a code panel shows only while picked; only touch its materials when that changes
-          o.userData.codeOn = mine || on;
-          showCode(o, o.userData.codeOn);
+        } else {
+          // a code add-on shows only while picked (a shell panel never: its spot on the real body lights up instead);
+          // only touch its materials when that changes
+          const want = (mine || on) && !region;
+          if (o.userData.codeOn !== want) { o.userData.codeOn = want; showCode(o, want); }
         }
       }
       paintBy(o, vis, id, on, false); // body panels only when the log covers them (tires, wipers)
     });
+    if (realBody) highlightBody(realBody, lit, AMBER, focus ? 0.7 + pulse : 0.6);
     chassis.forEach(function (o) {
       const id = o.userData.id, on = hot(id, "under");
       // the underside stays assembled; only the part in close-up slides out so it can be seen
