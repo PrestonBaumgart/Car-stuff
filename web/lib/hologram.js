@@ -576,8 +576,8 @@ export function createHologram(root, options = {}) {
     else if (level === "body") dir.y = Math.min(0.6, Math.max(dir.y, 0.15));
     else dir.y = Math.max(dir.y, 0.4);
     dir.normalize();
-    // engine parts are small and detailed: the camera may come closer to them than to the rest of the car
-    const nearest = level === "bay" || level === "inside" ? 0.8 : 1.5;
+    // engine and underside parts are small and detailed: the camera may come closer to them than to the body
+    const nearest = level === "bay" || level === "inside" || level === "under" ? 0.8 : 1.5;
     const d = Math.min(3.2, Math.max(nearest, r * 6)) * (narrow() ? 1.3 : 1);
     return { t: c, p: c.clone().addScaledVector(dir, d) };
   }
@@ -681,7 +681,7 @@ export function createHologram(root, options = {}) {
   }
 
   /* ---- render loop ---- */
-  let shell = 1, bayVis = 0, explode = 0, insideVis = 0, insideExplode = 0, underVis = 0, underExplode = 0, liftK = 0, last = 0, raf = 0, onScreen = true;
+  let shell = 1, bayVis = 0, explode = 0, insideVis = 0, insideExplode = 0, underVis = 0, liftK = 0, last = 0, raf = 0, onScreen = true;
   const io = new IntersectionObserver((e) => { onScreen = e[0].isIntersecting; });
   io.observe(root);
   const approach = (v, g, dt, speed) => v + (g - v) * Math.min(1, dt * speed);
@@ -701,7 +701,6 @@ export function createHologram(root, options = {}) {
     insideVis = go(insideVis, level === "inside" ? 1 : 0, 3);
     insideExplode = go(insideExplode, level === "inside" ? 1 : 0, 1.8);
     underVis = go(underVis, level === "under" ? 1 : 0, 3);
-    underExplode = go(underExplode, level === "under" ? 1 : 0, 2);
     liftK = go(liftK, level === "under" ? 1 : 0, 1.6);
 
     // the lift raises the car; it stays see-through so it never blocks the parts
@@ -746,7 +745,9 @@ export function createHologram(root, options = {}) {
     });
     chassis.forEach(function (o) {
       const id = o.userData.id, on = hot(id, "under");
-      o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, underExplode);
+      // the underside stays assembled; only the part in close-up slides out so it can be seen
+      o.userData.pop = go(o.userData.pop || 0, focus && level === "under" && id === partId ? 1 : 0, 3);
+      o.position.copy(o.userData.rest).addScaledVector(o.userData.ex, o.userData.pop);
       let vis = level === "under" ? (focus && !on ? 0.15 : 1) : shell;
       // the code-built underside would poke through a real body: it only shows from underneath
       if (realBody && level !== "under" && !on) vis = 0;

@@ -34,6 +34,8 @@ const LOOK = {
   gloss: { kind: "physical", color: 0x08090b, metalness: 0.2, roughness: 0.12, clearcoat: 1 },
   liner: { color: 0x101114, metalness: 0, roughness: 0.95 },
   spring: { color: 0x2c4f8a, metalness: 0.5, roughness: 0.4 },
+  pad: { color: 0x2b2927, metalness: 0.05, roughness: 0.92 },
+  cast: { color: 0x8f959c, metalness: 0.55, roughness: 0.55 },
   liftPost: { color: 0xc99a22, metalness: 0.3, roughness: 0.5 },
   liftArm: { color: 0x2f3439, metalness: 0.6, roughness: 0.45 },
 };
@@ -131,7 +133,7 @@ export function setVisibility(obj, vis, glow, glowColor) {
 /* ---------------- geometry helpers ---------------- */
 const rbox = (w, h, d, r) => new RoundedBoxGeometry(w, h, d, 3, Math.min(r == null ? 0.01 : r, w / 2, h / 2, d / 2));
 const cyl = (r, h, seg, r2) => new THREE.CylinderGeometry(r, r2 == null ? r : r2, h, seg || 32);
-const tube = (pts, r, closed, seg) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3().fromArray(p)), !!closed, "centripetal"), seg || 32, r, 10, !!closed);
+const tube = (pts, r, closed, seg) => new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3().fromArray(p)), !!closed, "centripetal"), seg || 32, r, 16, !!closed);
 const RX = [Math.PI / 2, 0, 0], RZ = [0, 0, Math.PI / 2];
 
 function mesh(geo, look, pos, rot, extra) {
@@ -517,19 +519,110 @@ function wheel() {
 // Cylinder from point a to point b (radius r, or tapering to r2 at b).
 function rod(a, b, r, look, r2) {
   const A = new THREE.Vector3().fromArray(a), dir = new THREE.Vector3().fromArray(b).sub(A);
-  const m = mesh(cyl(r, dir.length(), 16, r2), look);
+  const m = mesh(cyl(r, dir.length(), 24, r2), look);
   m.position.copy(A).addScaledVector(dir, 0.5);
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
   return m;
 }
-// Coil spring standing on [x, z], from height y0 to y1.
-function coil(at, y0, y1, r, turns) {
-  const pts = [], n = turns * 24;
-  for (let k = 0; k <= n; k++) { const a = (k / 24) * Math.PI * 2; pts.push([at[0] + Math.cos(a) * r, y0 + ((y1 - y0) * k) / n, at[1] + Math.sin(a) * r]); }
-  return mesh(tube(pts, 0.009, false, turns * 40), "spring");
+
+// A flat bar with rounded ends from point a to b, w0 wide at a and w1 at b, t thick along `normal`: forged arms, brackets, links.
+function slab(a, b, w0, w1, t, normal, look) {
+  const A = new THREE.Vector3().fromArray(a), B = new THREE.Vector3().fromArray(b), L = A.distanceTo(B);
+  const sh = new THREE.Shape();
+  sh.absarc(0, 0, w0 / 2, Math.PI / 2, Math.PI * 1.5, false);
+  sh.lineTo(L, -w1 / 2);
+  sh.absarc(L, 0, w1 / 2, -Math.PI / 2, Math.PI / 2, false);
+  sh.lineTo(0, w0 / 2);
+  const bev = Math.min(t * 0.3, 0.005), depth = Math.max(t - 2 * bev, 0.001);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: true, bevelThickness: bev, bevelSize: bev * 0.8, bevelSegments: 2, curveSegments: 12 });
+  geo.translate(0, 0, -depth / 2);
+  const x = B.clone().sub(A).normalize(), z = new THREE.Vector3().fromArray(normal);
+  z.addScaledVector(x, -z.dot(x)).normalize();
+  const m = mesh(geo, look);
+  m.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(x, z.clone().cross(x), z));
+  m.position.copy(A);
+  return m;
 }
-// CV joint and rack boots: squashed rubber balls along z.
-function boot(p, r) { const m = mesh(new THREE.SphereGeometry(r || 0.042, 16, 12), "rubber", p); m.scale.set(1, 1, 1.7); return m; }
+// A solid of revolution around y from [radius, y] points; a closed outline makes a solid ring or dish.
+function lathe(points, look, pos, rot, seg) {
+  return mesh(new THREE.LatheGeometry(points.map((p) => new THREE.Vector2(p[0], p[1])), seg || 40), look, pos, rot);
+}
+// Rubber bellows along y from 0 to len, radius r0 at the bottom to r1 at the top, with `folds` ridges: CV, rack and strut boots.
+function bellows(r0, r1, len, folds) {
+  const pts = [], n = folds * 10;
+  for (let i = 0; i <= n; i++) { const t = i / n; pts.push(new THREE.Vector2((r0 + (r1 - r0) * t) * (0.87 + 0.13 * Math.cos(t * folds * Math.PI * 2)), t * len)); }
+  return new THREE.LatheGeometry(pts, 32);
+}
+// Coil spring along y from 0 to len: coil radius r, wire thickness w, `turns` working coils plus a closed, flat coil at each end.
+function springGeo(r, len, turns, w) {
+  const total = turns + 1.5, n = Math.round(total * 36), pts = [];
+  for (let i = 0; i <= n; i++) {
+    const u = (i / n) * total, a = u * Math.PI * 2;
+    const h = u < 0.75 ? w / 2 + (w * u) / 0.75 : u > total - 0.75 ? len - w / 2 - (w * (total - u)) / 0.75 : 1.5 * w + ((len - 3 * w) * (u - 0.75)) / (total - 1.5);
+    pts.push(new THREE.Vector3(Math.cos(a) * r, h, Math.sin(a) * r));
+  }
+  return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), n * 2, w / 2, 12, false);
+}
+// Turn obj so its local +y runs from a toward b, and put it at a.
+function along(obj, a, b) {
+  obj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3().fromArray(b).sub(new THREE.Vector3().fromArray(a)).normalize());
+  obj.position.fromArray(a);
+  return obj;
+}
+// An annular sector (radius r0 to r1, half-angle h either side of +x) lying in the x-z plane, extruded t thick along +y: brake pads.
+function sectorGeo(r0, r1, h, t) {
+  const sh = new THREE.Shape();
+  sh.absarc(0, 0, r1, -h, h, false);
+  sh.absarc(0, 0, r0, h, -h, true);
+  const geo = new THREE.ExtrudeGeometry(sh, { depth: t, bevelEnabled: false, curveSegments: 18 });
+  geo.rotateX(-Math.PI / 2);
+  return geo;
+}
+function roundedRect(path, x0, y0, x1, y1, r) {
+  path.moveTo(x0 + r, y0); path.lineTo(x1 - r, y0); path.quadraticCurveTo(x1, y0, x1, y0 + r);
+  path.lineTo(x1, y1 - r); path.quadraticCurveTo(x1, y1, x1 - r, y1);
+  path.lineTo(x0 + r, y1); path.quadraticCurveTo(x0, y1, x0, y1 - r);
+  path.lineTo(x0, y0 + r); path.quadraticCurveTo(x0, y0, x0 + r, y0);
+  return path;
+}
+
+// Brake parts in the wheel's brake frame: origin on the rotor's centre plane, +y outboard along the axle, +x toward the caliper.
+// Vented rotor: two friction plates joined by vanes, and the hat the wheel bolts to.
+function rotorParts(rOut, rIn, rHat) {
+  const plate = (y0, y1) => lathe([[rIn, y0], [rOut, y0], [rOut, y1], [rIn, y1], [rIn, y0]], "steel", null, null, 72);
+  const parts = [plate(-0.013, -0.005), plate(0.005, 0.013)];
+  for (let i = 0; i < 36; i++) {
+    const a = (i / 36) * Math.PI * 2, rm = (rIn + rOut) / 2;
+    parts.push(mesh(new THREE.BoxGeometry(rOut - rIn - 0.004, 0.01, 0.0045), "iron", [Math.cos(a) * rm, 0, Math.sin(a) * rm], [0, -a, 0]));
+  }
+  parts.push(lathe([[rHat, 0.005], [rHat, 0.035], [0.034, 0.035], [0.034, 0.029], [rHat - 0.006, 0.029], [rHat - 0.006, 0.005], [rHat, 0.005]], "iron", null, null, 56));
+  parts.push(lathe([[rHat - 0.006, 0.005], [rIn + 0.002, 0.005], [rIn + 0.002, 0.012], [rHat - 0.006, 0.012], [rHat - 0.006, 0.005]], "iron", null, null, 56));
+  return parts;
+}
+// Single-piston sliding caliper: piston body inboard, bridge over the rotor edge, fingers outboard, slide pins, bracket, bleeder.
+function caliperParts(rOut, r0, r1) {
+  const mid = (r0 + r1) / 2, top = rOut + 0.024;
+  const parts = [
+    mesh(rbox(top - r0 + 0.004, 0.042, 0.098, 0.014), "iron", [(top + r0 - 0.004) / 2, -0.049, 0]),
+    mesh(cyl(0.034, 0.03, 40), "iron", [mid, -0.072, 0]),
+    mesh(rbox(0.022, 0.1, 0.092, 0.009), "iron", [rOut + 0.013, -0.014, 0]),
+    mesh(rbox(rOut + 0.012 - r0, 0.014, 0.084, 0.006), "iron", [(rOut + 0.012 + r0) / 2, 0.034, 0]),
+    mesh(cyl(0.005, 0.022, 12), "steel", [top - 0.004, -0.06, 0.022], RZ),
+    mesh(cyl(0.0065, 0.006, 12), "rubber", [top + 0.008, -0.06, 0.022], RZ),
+  ];
+  [-1, 1].forEach(function (d) {
+    parts.push(mesh(cyl(0.011, 0.05, 16), "iron", [mid + 0.012, -0.047, d * 0.063]));
+    parts.push(mesh(bellows(0.011, 0.008, 0.024, 3), "rubber", [mid + 0.012, -0.022, d * 0.063]));
+    parts.push(mesh(rbox(r1 - r0 + 0.03, 0.016, 0.02, 0.005), "darkSteel", [mid, -0.03, d * 0.056]));
+  });
+  return parts;
+}
+// Inner and outer pads: friction material on a steel backing plate with ears that sit in the bracket.
+function padParts(r0, r1, h) {
+  const fric = (y) => mesh(sectorGeo(r0, r1, h, 0.009), "pad", [0, y, 0]);
+  const back = (y) => mesh(sectorGeo(r0 - 0.004, r1 + 0.003, h + 0.06, 0.005), "steel", [0, y, 0]);
+  return [fric(-0.022), back(-0.027), fric(0.013), back(0.022)];
+}
 
 // A mesh drawing some of the triangles of a shared geometry: one panel cut from the lofted body shell.
 function subMesh(geo, tris, mat) {
@@ -809,6 +902,197 @@ export function buildCar(options) {
   const roofStart = C0.top.find((p) => p[1] >= roofY - 0.03)[0] + 0.08;
   panel("antenna", mesh(rbox(0.16, 0.06, 0.05, 0.02), "trim", [roofStart, topC(roofStart) + 0.02, 0], [0, 0, 0.12]), [0, 0.2, 0]);
 
+  // ---- underside geometry for this car: x forward, y up, z outboard on side s; wheel centres at (W or R, A, s * 0.78) ----
+  const rearDriven = awd || rwd, transSide = vee ? -1 : 1;
+  // pickups carry a live rear axle on leaf springs; other driven rears are multi-link
+  const solidAxle = rearDriven && !!S.bed;
+  // place a brake part built in the wheel's brake frame (see rotorParts); `ang` turns its +x toward the caliper
+  const brakeFrame = (obj, x, s, ang) => {
+    const X = new THREE.Vector3(Math.cos(ang), Math.sin(ang), 0), Y = new THREE.Vector3(0, 0, s);
+    obj.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(X, Y, X.clone().cross(Y)));
+    obj.position.set(x, A, s * 0.7);
+    return obj;
+  };
+  // front strut from its clamp on the knuckle to the top mount; strut tops stay under the fender line so they never poke through the hood
+  const strutTop = Math.min(A + 0.62, topL(W) - 0.1);
+  const strutAxis = (s) => [[W - 0.02, A + 0.16, s * 0.6], [W - 0.045, strutTop, s * 0.555]];
+  const dist = (a, b) => Math.hypot(b[0] - a[0], b[1] - a[1], b[2] - a[2]);
+  // a point `t` metres up the front strut, moved `dx` along x (negative is toward the rear)
+  const strutPoint = (s, t, dx) => { const [a, b] = strutAxis(s), f = t / dist(a, b); return [a[0] + (b[0] - a[0]) * f + dx, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f]; };
+  // hub: flange under the rotor hat, barrel through the bearing, five studs and the axle nut
+  const hubParts = (x, s) => {
+    const parts = [
+      mesh(cyl(0.07, 0.012, 40), "steel", [x, A, s * 0.723], RX),
+      mesh(cyl(0.042, 0.075, 32), "steel", [x, A, s * 0.68], RX),
+      mesh(cyl(0.058, 0.05, 32), "aluminum", [x, A, s * 0.605], RX),
+      mesh(cyl(0.016, 0.014, 6), "steel", [x, A, s * 0.742], RX),
+    ];
+    for (let i = 0; i < 5; i++) { const a = (i / 5) * Math.PI * 2; parts.push(mesh(cyl(0.0055, 0.055, 10), "chrome", [x + Math.cos(a) * 0.05, A + Math.sin(a) * 0.05, s * 0.745], RX)); }
+    return parts;
+  };
+  // cast knuckle: hub boss, arm up to the strut (or upper link), arm down to the ball joint, caliper bracket ears, steering arm in front
+  const knuckleParts = (x, s, front, ang) => {
+    const z = s * 0.6, n = [0, 0, 1], P = (dx, dy) => [x + dx, A + dy, z];
+    const parts = [
+      mesh(cyl(0.074, 0.05, 40), "iron", [x, A, z], RX),
+      slab(P(0, 0.03), P(-0.02, front ? 0.2 : 0.17), 0.07, 0.05, 0.04, n, "iron"),
+      slab(P(0, -0.03), P(0.01, -0.145), 0.07, 0.046, 0.04, n, "iron"),
+    ];
+    [-0.38, 0.38].forEach(function (d) {
+      const a = ang + d, tip = P(Math.cos(a) * 0.125 * k, Math.sin(a) * 0.125 * k);
+      parts.push(slab(P(Math.cos(a) * 0.05, Math.sin(a) * 0.05), tip, 0.036, 0.028, 0.03, n, "iron"));
+      parts.push(mesh(cyl(0.0075, 0.085, 12), "steel", [tip[0], tip[1], s * 0.64], RX));
+    });
+    if (front) parts.push(slab(P(-0.03, 0.02), P(-0.15, 0.025), 0.05, 0.03, 0.03, n, "iron"));
+    return parts;
+  };
+  // twist-beam rear: a flat spindle plate on the trailing arm instead of a knuckle
+  const spindleParts = (x, s, ang) => {
+    const z = s * 0.63, n = [0, 0, 1], P = (dx, dy) => [x + dx, A + dy, z];
+    const parts = [mesh(rbox(0.13, 0.13, 0.018, 0.03), "iron", [x, A, z])];
+    [-0.38, 0.38].forEach(function (d) {
+      const a = ang + d, tip = P(Math.cos(a) * 0.12 * k, Math.sin(a) * 0.12 * k);
+      parts.push(slab(P(Math.cos(a) * 0.05, Math.sin(a) * 0.05), tip, 0.034, 0.026, 0.024, n, "iron"), mesh(cyl(0.0075, 0.06, 12), "steel", [tip[0], tip[1], s * 0.655], RX));
+    });
+    return parts;
+  };
+  // CV axle from the transaxle (or differential) output at `inner` to the hub: inner joint cup, boots, shaft, outer joint into the knuckle
+  const cvParts = (x, s, inner) => {
+    const P = (z) => [x, A, s * z], rot = [s * Math.PI / 2, 0, 0];
+    return [
+      lathe([[0, 0], [0.041, 0], [0.048, 0.012], [0.048, 0.06], [0.031, 0.076]], "steel", P(inner), rot),
+      mesh(bellows(0.031, 0.017, 0.085, 6), "rubber", P(inner + 0.075), rot),
+      rod(P(inner + 0.15), P(0.505), 0.0135, "steel"),
+      mesh(bellows(0.017, 0.035, 0.075, 6), "rubber", P(0.5), rot),
+      lathe([[0.035, 0], [0.046, 0.012], [0.047, 0.03], [0.036, 0.046], [0.026, 0.052]], "steel", P(0.575), rot),
+    ];
+  };
+  // strut (built along +y from its foot): clamp with bolts, body, spring perch, dust boot, rod, upper seat, isolator, top plate
+  const strutParts = (p0, p1) => {
+    const L = dist(p0, p1), body = 0.31;
+    return [
+      mesh(cyl(0.038, 0.1, 32), "darkSteel", [0, 0.045, 0]),
+      mesh(rbox(0.032, 0.09, 0.05, 0.008), "darkSteel", [-0.045, 0.045, 0]),
+      ...[0.02, 0.07].map((y) => mesh(cyl(0.007, 0.075, 12), "steel", [-0.05, y, 0], RX)),
+      mesh(cyl(0.029, body, 32), "darkSteel", [0, body / 2, 0]),
+      lathe([[0.029, 0], [0.074, 0.006], [0.077, 0.014], [0.07, 0.016], [0.029, 0.01], [0.029, 0]], "darkSteel", [0, 0.2, 0], null, 48),
+      mesh(bellows(0.025, 0.027, L - body - 0.07, 8), "rubber", [0, body, 0]),
+      mesh(cyl(0.01, L - body, 16), "chrome", [0, (L + body) / 2, 0]),
+      lathe([[0.02, 0.008], [0.074, 0.006], [0.08, 0], [0.078, -0.008], [0.02, 0], [0.02, 0.008]], "darkSteel", [0, L - 0.05, 0], null, 48),
+      mesh(cyl(0.06, 0.022, 36), "rubber", [0, L - 0.034, 0]),
+      mesh(cyl(0.07, 0.008, 36), "steel", [0, L - 0.019, 0]),
+      mesh(cyl(0.012, 0.014, 6), "steel", [0, L - 0.008, 0]),
+      ...[0, 1, 2].map((i) => { const a = (i / 3) * Math.PI * 2 + 0.5; return mesh(cyl(0.005, 0.03, 8), "steel", [Math.cos(a) * 0.05, L - 0.005, Math.sin(a) * 0.05]); }),
+    ];
+  };
+  // the front spring sits between the strut's perch and its upper seat
+  const springParts = (p0, p1) => { const y0 = 0.216, y1 = dist(p0, p1) - 0.056; return [mesh(springGeo(0.064, y1 - y0, 5, 0.0105), "spring", [0, y0, 0])]; };
+  // rear shock (built along +y from its lower eye)
+  const shockParts = (q0, q1) => {
+    const L = dist(q0, q1), body = Math.min(0.26, L * 0.55);
+    return [
+      mesh(cyl(0.02, 0.04, 24), "darkSteel", null, RZ), mesh(cyl(0.013, 0.044, 20), "rubber", null, RZ),
+      mesh(cyl(0.026, body - 0.02, 32), "darkSteel", [0, 0.02 + (body - 0.02) / 2, 0]),
+      mesh(bellows(0.022, 0.024, L - body - 0.04, 7), "rubber", [0, body, 0]),
+      mesh(cyl(0.009, L - body, 16), "chrome", [0, (L + body) / 2, 0]),
+      mesh(cyl(0.035, 0.02, 28), "rubber", [0, L - 0.03, 0]),
+      mesh(cyl(0.045, 0.006, 28), "steel", [0, L - 0.017, 0]),
+      mesh(cyl(0.011, 0.012, 6), "steel", [0, L - 0.008, 0]),
+    ];
+  };
+  // front subframe: one stamped cradle with rounded corners and a rubber body mount at each corner
+  const subframeParts = (x0, x1, zh, y) => {
+    const rail = 0.07, t = 0.04, outline = roundedRect(new THREE.Shape(), x0, -zh, x1, zh, 0.07);
+    outline.holes.push(roundedRect(new THREE.Path(), x0 + rail, -zh + rail, x1 - rail, zh - rail, 0.04));
+    const geo = new THREE.ExtrudeGeometry(outline, { depth: t, bevelEnabled: true, bevelThickness: 0.008, bevelSize: 0.008, bevelSegments: 2, curveSegments: 10 });
+    geo.rotateX(Math.PI / 2);
+    geo.translate(0, y + t / 2, 0);
+    const parts = [mesh(geo, "darkSteel")];
+    [[x0 + 0.04, 1], [x0 + 0.04, -1], [x1 - 0.04, 1], [x1 - 0.04, -1]].forEach(function ([mx, s]) {
+      parts.push(mesh(cyl(0.032, 0.05, 28), "rubber", [mx, y + 0.045, s * (zh - 0.035)]), mesh(cyl(0.04, 0.008, 28), "steel", [mx, y + 0.072, s * (zh - 0.035)]));
+    });
+    return parts;
+  };
+  // a leaf spring: a profile of width w and thickness t swept along points in the x-y plane
+  const leafGeo = (pts, w, t) => {
+    // along a curve in the x-y plane the sweep's normal is z, so the shape's x is the leaf's width and its y the thickness
+    const sh = new THREE.Shape(); sh.moveTo(-w / 2, -t / 2); sh.lineTo(w / 2, -t / 2); sh.lineTo(w / 2, t / 2); sh.lineTo(-w / 2, t / 2); sh.closePath();
+    return new THREE.ExtrudeGeometry(sh, { steps: 32, bevelEnabled: false, extrudePath: new THREE.CatmullRomCurve3(pts.map((p) => new THREE.Vector3().fromArray(p))) });
+  };
+  // leaf pack under the axle at side z: four leaves on one arc, eyes on a front hanger and a rear shackle, U-bolts and plate
+  const leafParts = (z) => {
+    const xc = R + 0.02, span = 0.6, eyeY = A + 0.07, sag = A - 0.064, arc = (x) => sag + (eyeY - sag) * Math.pow((x - xc) / span, 2);
+    const parts = [];
+    [0.6, 0.47, 0.34, 0.2].forEach(function (half, i) {
+      const pts = [];
+      for (let j = 0; j <= 16; j++) { const x = xc - half + (2 * half * j) / 16; pts.push([x, arc(x) - i * 0.0095, z]); }
+      parts.push(mesh(leafGeo(pts, 0.06, 0.008), "darkSteel"));
+    });
+    [xc + span, xc - span].forEach(function (ex, i) {
+      parts.push(mesh(cyl(0.021, 0.064, 24), "darkSteel", [ex, eyeY + 0.012, z], RX), mesh(cyl(0.013, 0.07, 20), "rubber", [ex, eyeY + 0.012, z], RX));
+      [-0.036, 0.036].forEach(function (dz) {
+        const top = i === 0 ? [ex, eyeY + 0.15, z + dz] : [ex - 0.04, eyeY + 0.13, z + dz];
+        parts.push(slab([ex, eyeY + 0.012, z + dz], top, 0.042, 0.042, 0.008, [0, 0, 1], i === 0 ? "steel" : "darkSteel"));
+      });
+      if (i === 1) parts.push(mesh(cyl(0.018, 0.08, 20), "darkSteel", [ex - 0.04, eyeY + 0.13, z], RX));
+    });
+    parts.push(mesh(rbox(0.09, 0.014, 0.075, 0.004), "steel", [R, sag - 0.045, z]));
+    [-0.035, 0.035].forEach(function (dx) {
+      const x = R + dx;
+      parts.push(mesh(tube([[x, sag - 0.05, z - 0.033], [x, A + 0.005, z - 0.033], [x, A + 0.043, z], [x, A + 0.005, z + 0.033], [x, sag - 0.05, z + 0.033]], 0.0055, false, 32), "steel"));
+      [-0.033, 0.033].forEach((dz) => parts.push(mesh(cyl(0.01, 0.012, 6), "steel", [x, sag - 0.058, z + dz])));
+    });
+    return parts;
+  };
+  // live axle housing: tube across, hub flanges, perch pads on the leaf springs
+  const axleHousingParts = () => [
+    mesh(cyl(0.036, 1.2, 32), "iron", [R, A, 0], RX),
+    ...[-1, 1].flatMap((s) => [mesh(cyl(0.062, 0.014, 32), "iron", [R, A, s * 0.6], RX), mesh(rbox(0.075, 0.024, 0.068, 0.005), "iron", [R, A - 0.048, s * 0.5])]),
+  ];
+  // twist beam: V-section cross beam, trailing arms on pivot bushings, spring seats
+  const twistBeamParts = () => {
+    const v = new THREE.Shape();
+    v.moveTo(-0.055, 0.03); v.lineTo(0, -0.035); v.lineTo(0.055, 0.03); v.lineTo(0.045, 0.035); v.lineTo(0, -0.022); v.lineTo(-0.045, 0.035); v.closePath();
+    const beam = new THREE.ExtrudeGeometry(v, { depth: 1.12, bevelEnabled: true, bevelThickness: 0.003, bevelSize: 0.003, bevelSegments: 1 });
+    beam.translate(0, 0, -0.56);
+    const parts = [mesh(beam, "darkSteel", [R + 0.2, A + 0.01, 0])];
+    [-1, 1].forEach(function (s) {
+      const pivot = [R + 0.46, A + 0.045, s * 0.585], tail = [R - 0.11, A - 0.015, s * 0.6];
+      parts.push(
+        slab(pivot, tail, 0.06, 0.085, 0.035, [0, 0, 1], "darkSteel"),
+        mesh(cyl(0.036, 0.07, 28), "darkSteel", pivot, RX), mesh(cyl(0.024, 0.076, 24), "rubber", pivot, RX),
+        slab([pivot[0], pivot[1] + 0.03, pivot[2]], [pivot[0] + 0.02, pivot[1] + 0.14, pivot[2]], 0.05, 0.06, 0.01, [0, 0, 1], "steel"),
+        mesh(cyl(0.066, 0.012, 36), "darkSteel", [R + 0.1, A - 0.004, s * 0.49]),
+        slab([R + 0.1, A - 0.004, s * 0.49], [R + 0.1, A, s * 0.58], 0.05, 0.05, 0.01, [0, 1, 0], "darkSteel"),
+      );
+    });
+    return parts;
+  };
+  // rear differential: housing, cover with bolts, pinion snout and flange, axle outputs
+  const diffParts = (x, y) => {
+    const toX = [0, 0, -Math.PI / 2];
+    const parts = [
+      lathe([[0, -0.1], [0.07, -0.09], [0.11, -0.05], [0.12, 0], [0.11, 0.04], [0.09, 0.07], [0, 0.07]], "iron", [x, y, 0], toX, 48),
+      lathe([[0, 0], [0.1, 0], [0.105, -0.01], [0.09, -0.03], [0, -0.035]], "darkSteel", [x - 0.1, y, 0], toX, 48),
+      mesh(cyl(0.045, 0.1, 28, 0.03), "iron", [x + 0.12, y, 0], toX),
+      mesh(cyl(0.045, 0.012, 28), "darkSteel", [x + 0.175, y, 0], RZ),
+    ];
+    for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2; parts.push(mesh(cyl(0.006, 0.012, 6), "steel", [x - 0.104, y + Math.cos(a) * 0.092, Math.sin(a) * 0.092], RZ)); }
+    [-1, 1].forEach((d) => parts.push(mesh(cyl(0.04, 0.08, 28), "iron", [x, y, d * 0.12], RX)));
+    return parts;
+  };
+  // two-piece driveshaft: tubes, universal joints, flanges and the centre support bearing
+  const driveshaftParts = (a, b) => {
+    const m = a.map((v, i) => (v + b[i]) / 2);
+    return [
+      rod(a, m, 0.033, "steel"), rod(m, b, 0.033, "steel"),
+      mesh(cyl(0.045, 0.04, 28), "rubber", m, RZ),
+      slab([m[0], m[1] + 0.03, m[2] - 0.07], [m[0], m[1] + 0.03, m[2] + 0.07], 0.03, 0.03, 0.008, [0, 1, 0], "steel"),
+      ...[a, m, b].map((p) => mesh(new THREE.SphereGeometry(0.03, 16, 12), "darkSteel", p)),
+      ...[a, b].map((p) => mesh(cyl(0.045, 0.012, 28), "darkSteel", p, RZ)),
+    ];
+  };
+
   // wheels and tires; the brakes, hubs and suspension behind them are underside parts
   [[W, 1], [W, -1], [R, 1], [R, -1]].forEach(function ([x, s]) {
     const w = wheel();
@@ -816,95 +1100,128 @@ export function buildCar(options) {
     panel("tires", w.tire, [0, 0, s * 0.36]);
     panel("wheels", w.rim, [0, 0, s * 0.36]);
 
-    under("rotors", group([mesh(cyl(0.19 * k, 0.022, 48), "steel", [x, A, s * 0.7], RX), mesh(cyl(0.07 * k, 0.03, 32), "darkSteel", [x, A, s * 0.712], RX)]), [0, 0, s * 0.14]);
-    const ang = Math.PI * 0.72, cx = x + Math.cos(ang) * 0.165 * k, cy = A + Math.sin(ang) * 0.165 * k;
-    under("calipers", mesh(rbox(0.075 * k, 0.13 * k, 0.06, 0.015), "caliper", [cx, cy, s * 0.71], [0, 0, ang]), [0, 0.05, s * 0.26]);
-    under("pads", group([-1, 1].map((d) => mesh(rbox(0.055 * k, 0.1 * k, 0.012, 0.004), "darkSteel", [cx, cy, s * 0.7 + d * 0.02], [0, 0, ang]))), [0, 0.16, s * 0.36]);
-    under("bearings", mesh(cyl(0.065, 0.07, 32), "aluminum", [x, A, s * 0.645], RX), [0, 0, s * 0.06]);
-    under("blines", mesh(tube([[cx, cy, s * 0.72], [cx - 0.02, A + 0.2, s * 0.62], [x - 0.12, A + 0.24, s * 0.48]], 0.006, false, 24), "hose"), [0, 0.06, 0]);
+    // brakes and hub, built in the wheel's frame: vented rotor, single-piston sliding caliper on its bracket, pads either side
+    const front = x === W, ang = front ? Math.PI * 0.72 : Math.PI * 0.28, rOut = (front ? 0.19 : 0.172) * k;
+    under("rotors", brakeFrame(group(rotorParts(rOut, 0.115 * k, 0.085 * k)), x, s, 0), [0, 0, s * 0.12]);
+    under("calipers", brakeFrame(group(caliperParts(rOut, 0.122 * k, rOut - 0.006)), x, s, ang), [0, 0.03, s * 0.2]);
+    under("pads", brakeFrame(group(padParts(0.122 * k, rOut - 0.006, 0.3)), x, s, ang), [0, 0.05, s * 0.3]);
+    under("bearings", group(hubParts(x, s).concat(front || (rearDriven && !solidAxle) ? knuckleParts(x, s, front, ang) : spindleParts(x, s, ang))), [0, 0, s * 0.08]);
+    // hose from the caliper to a bracket on the strut (front) or the body (rear), then the hard line inboard
+    const banjo = [x + Math.cos(ang) * (rOut + 0.004), A + Math.sin(ang) * (rOut + 0.004), s * 0.64];
+    const clip = front ? strutPoint(s, 0.1, -0.035) : [x + (x > 0 ? -1 : 1) * 0.1, A + 0.2, s * 0.52];
+    under("blines", group([
+      mesh(tube([banjo, [banjo[0], banjo[1] + 0.05, s * 0.6], clip], 0.0065, false, 32), "hose"),
+      mesh(cyl(0.011, 0.02, 6), "steel", banjo, RZ),
+      mesh(tube([clip, [clip[0], clip[1] + 0.06, s * 0.46], [x - 0.12 * (x > 0 ? 1 : -1), A + 0.26, s * 0.42]], 0.004, false, 24), "steel"),
+    ]), [0, 0.06, 0]);
   });
   const floorY = botBase(0), py = floorY - 0.05;
-  under("blines", rod([W - 0.25, floorY - 0.01, 0.45], [R + 0.3, floorY - 0.01, 0.45], 0.005, "steel"), [0, -0.06, 0]);
+  under("blines", rod([W - 0.25, floorY - 0.01, 0.45], [R + 0.3, floorY - 0.01, 0.45], 0.0045, "steel"), [0, -0.06, 0]);
 
-  function cvAxle(x, s) {
-    under("cv", group([rod([x, A, s * 0.13], [x, A, s * 0.6], 0.017, "steel"), boot([x, A, s * 0.19]), boot([x, A, s * 0.54])]), [0, -0.16, 0]);
-  }
-  // front: MacPherson struts, coil springs, lower control arms, tie rods, steering rack, sway bar, subframe
-  // strut tops stay under the fender line so they never poke through the hood
-  const strutTop = Math.min(A + 0.62, topL(W) - 0.1);
+  // front: MacPherson struts on cast knuckles, coil springs, L-shaped lower arms, tie rods to the rack, sway bar, subframe
   [-1, 1].forEach(function (s) {
-    const sx = W - 0.03, sz = s * 0.6;
-    under("struts", group([
-      rod([W, A + 0.06, sz], [sx, A + 0.34, sz], 0.038, "darkSteel"),
-      rod([sx, A + 0.34, sz], [sx - 0.015, strutTop, sz], 0.012, "chrome"),
-      mesh(cyl(0.075, 0.03, 32), "rubber", [sx - 0.015, strutTop, sz]),
-    ]), [0, -0.1, s * 0.16]);
-    under("springs", coil([sx - 0.008, sz], A + 0.36, strutTop - 0.04, 0.07, 5), [0, -0.05, s * 0.28]);
+    const [p0, p1] = strutAxis(s);
+    under("struts", group([along(group(strutParts(p0, p1)), p0, p1), slab(strutPoint(s, 0.12, 0), strutPoint(s, 0.12, -0.045), 0.03, 0.026, 0.008, [0, 0, 1], "darkSteel")]), [0, -0.08, s * 0.14]);
+    under("springs", along(group(springParts(p0, p1)), p0, p1), [0, -0.04, s * 0.24]);
+    const bj = [W + 0.01, A - 0.155, s * 0.6], fb = [W + 0.08, A - 0.115, s * 0.33], rb = [W - 0.22, A - 0.11, s * 0.33];
+    const mid = bj.map((v, i) => v + (rb[i] - v) * 0.55), up = [0, 1, 0];
     under("carms", group([
-      rod([W, A - 0.1, s * 0.6], [W + 0.18, A - 0.08, s * 0.26], 0.02, "darkSteel"),
-      rod([W, A - 0.1, s * 0.6], [W - 0.24, A - 0.08, s * 0.26], 0.02, "darkSteel"),
-      mesh(new THREE.SphereGeometry(0.03, 16, 12), "steel", [W, A - 0.1, s * 0.6]),
-    ]), [0, -0.14, s * 0.06]);
+      slab(bj, fb, 0.056, 0.046, 0.022, up, "darkSteel"),
+      slab(bj, rb, 0.05, 0.05, 0.022, up, "darkSteel"),
+      slab(fb, mid, 0.036, 0.036, 0.016, up, "darkSteel"),
+      mesh(cyl(0.032, 0.07, 28), "darkSteel", fb, RZ), mesh(cyl(0.021, 0.076, 20), "rubber", fb, RZ),
+      mesh(cyl(0.043, 0.05, 32), "darkSteel", rb), mesh(cyl(0.03, 0.054, 24), "rubber", rb),
+      mesh(cyl(0.027, 0.026, 28), "darkSteel", bj),
+      lathe([[0.025, 0], [0.031, 0.008], [0.024, 0.02], [0.011, 0.027], [0.008, 0.032]], "rubber", [bj[0], bj[1] + 0.013, bj[2]]),
+    ]), [0, -0.12, s * 0.06]);
+    const te = [W - 0.15, A + 0.02, s * 0.565], ti = [W - 0.17, A + 0.03, s * 0.37], nut = ti.map((v, i) => v + (te[i] - v) * 0.72);
     under("tierods", group([
-      rod([W - 0.17, A + 0.03, s * 0.33], [W - 0.13, A + 0.04, s * 0.6], 0.012, "steel"),
-      mesh(new THREE.SphereGeometry(0.022, 14, 10), "darkSteel", [W - 0.13, A + 0.04, s * 0.6]),
-    ]), [0, -0.1, s * 0.1]);
-    if (!rwd) cvAxle(W, s);
+      rod(ti, te, 0.0105, "steel"),
+      mesh(new THREE.SphereGeometry(0.019, 20, 14), "darkSteel", te),
+      lathe([[0.017, 0], [0.019, 0.008], [0.012, 0.016], [0.007, 0.02]], "rubber", [te[0], te[1] + 0.012, te[2]]),
+      rod(te, [W - 0.15, A + 0.022, s * 0.6], 0.006, "steel"),
+      along(mesh(cyl(0.016, 0.02, 6), "steel"), nut, te),
+    ]), [0, -0.08, s * 0.1]);
+    // the axle on the transaxle side starts at its differential; the other one under the engine
+    if (!rwd) under("cv", group(cvParts(W, s, s === transSide && !electric ? 0.3 : 0.12)), [0, -0.14, 0]);
   });
+  const rackX = W - 0.17, rackY = A + 0.03;
   under("rack", group([
-    rod([W - 0.17, A + 0.03, -0.33], [W - 0.17, A + 0.03, 0.33], 0.026, "aluminum"),
-    boot([W - 0.17, A + 0.03, -0.3], 0.036), boot([W - 0.17, A + 0.03, 0.3], 0.036),
-  ]), [0, -0.2, 0]);
+    mesh(cyl(0.024, 0.58, 32), "aluminum", [rackX, rackY, 0], RX),
+    mesh(cyl(0.032, 0.12, 32), "aluminum", [rackX, rackY, -0.12], RX),
+    rod([rackX, rackY + 0.02, -0.13], [rackX - 0.05, rackY + 0.18, -0.15], 0.018, "aluminum"),
+    ...[-1, 1].flatMap((d) => [
+      mesh(bellows(0.03, 0.016, 0.08, 6), "rubber", [rackX, rackY, d * 0.29], [d * Math.PI / 2, 0, 0]),
+      mesh(rbox(0.062, 0.052, 0.036, 0.01), "darkSteel", [rackX, rackY - 0.004, d * 0.21]),
+      slab([rackX, rackY - 0.022, d * 0.21], [W - 0.3, A - 0.05, d * 0.21], 0.032, 0.032, 0.012, [0, 0, 1], "darkSteel"),
+    ]),
+  ]), [0, -0.18, 0]);
+  const barEnd = (s) => [W - 0.05, A - 0.03, s * 0.5];
+  const barHalf = (s) => [barEnd(s), [W - 0.13, A - 0.034, s * 0.45], [W - 0.24, A - 0.036, s * 0.35], [W - 0.27, A - 0.036, s * 0.22]];
   under("swaybar", group([
-    mesh(tube([[W - 0.02, A + 0.02, -0.56], [W - 0.24, A - 0.04, -0.46], [W - 0.27, A - 0.05, 0], [W - 0.24, A - 0.04, 0.46], [W - 0.02, A + 0.02, 0.56]], 0.014, false, 60), "darkSteel"),
-    rod([W - 0.02, A + 0.02, -0.56], [W - 0.03, A + 0.26, -0.58], 0.008, "steel"),
-    rod([W - 0.02, A + 0.02, 0.56], [W - 0.03, A + 0.26, 0.58], 0.008, "steel"),
-  ]), [0, -0.26, 0]);
-  const fy = A - 0.07;
-  under("subframe", group([
-    mesh(rbox(0.06, 0.05, 0.9, 0.01), "darkSteel", [W + 0.22, fy, 0]),
-    mesh(rbox(0.06, 0.05, 0.9, 0.01), "darkSteel", [W - 0.34, fy, 0]),
-    mesh(rbox(0.56, 0.05, 0.06, 0.01), "darkSteel", [W - 0.06, fy, 0.45]),
-    mesh(rbox(0.56, 0.05, 0.06, 0.01), "darkSteel", [W - 0.06, fy, -0.45]),
-  ]), [0, -0.34, 0]);
+    mesh(tube(barHalf(-1).concat(barHalf(1).reverse()), 0.0125, false, 160), "darkSteel"),
+    ...[-1, 1].flatMap((s) => {
+      const top = strutPoint(s, 0.12, -0.045);
+      return [
+        mesh(cyl(0.025, 0.042, 24), "rubber", [W - 0.27, A - 0.036, s * 0.25], RX),
+        slab([W - 0.3, A - 0.05, s * 0.25], [W - 0.24, A - 0.05, s * 0.25], 0.05, 0.05, 0.006, [0, 1, 0], "steel"),
+        rod(barEnd(s), top, 0.0068, "steel"),
+        mesh(new THREE.SphereGeometry(0.013, 16, 12), "darkSteel", barEnd(s)),
+        mesh(new THREE.SphereGeometry(0.013, 16, 12), "darkSteel", top),
+      ];
+    }),
+  ]), [0, -0.22, 0]);
+  under("subframe", group(subframeParts(W - 0.34, W + 0.2, 0.37, A - 0.07)), [0, -0.3, 0]);
 
-  // rear: shocks and springs on a torsion beam (front-drive), or control arms and driven axles (AWD / RWD)
-  const rearDriven = awd || rwd;
+  // rear: a twist beam with trailing arms (front-drive), or a multi-link with driven axles (AWD / RWD)
   [-1, 1].forEach(function (s) {
-    under("struts", group([
-      rod([R - 0.1, A - 0.02, s * 0.56], [R - 0.12, A + 0.24, s * 0.56], 0.032, "darkSteel"),
-      rod([R - 0.12, A + 0.24, s * 0.56], [R - 0.13, A + 0.44, s * 0.56], 0.011, "chrome"),
-    ]), [0, -0.1, s * 0.16]);
-    under("springs", coil([R + 0.13, s * 0.55], A + 0.02, A + 0.28, 0.065, 5), [0, -0.05, s * 0.28]);
-    if (rearDriven) {
+    if (solidAxle) {
+      under("springs", group(leafParts(s * 0.5)), [0, -0.06, s * 0.2]);
+      const q0 = [R + 0.1, A - 0.035, s * 0.42], q1 = [R + 0.2, A + 0.38, s * 0.46];
+      under("struts", along(group(shockParts(q0, q1)), q0, q1), [0, -0.08, s * 0.14]);
+    } else if (rearDriven) {
+      const kb = [R + 0.01, A - 0.155, s * 0.6], lb = [R - 0.16, A - 0.1, s * 0.27], tl = [R + 0.42, A - 0.01, s * 0.55], ub = [R - 0.02, A + 0.18, s * 0.34];
       under("carms", group([
-        rod([R, A - 0.08, s * 0.6], [R + 0.25, A - 0.06, s * 0.24], 0.018, "darkSteel"),
-        rod([R, A - 0.08, s * 0.6], [R - 0.2, A - 0.06, s * 0.26], 0.018, "darkSteel"),
-      ]), [0, -0.14, s * 0.06]);
-      cvAxle(R, s);
+        slab(kb, lb, 0.07, 0.05, 0.022, [0, 1, 0], "darkSteel"),
+        slab([R + 0.03, A - 0.02, s * 0.6], tl, 0.05, 0.04, 0.02, [0, 0, 1], "darkSteel"),
+        slab([R - 0.02, A + 0.16, s * 0.6], ub, 0.035, 0.03, 0.016, [0, 1, 0], "darkSteel"),
+        mesh(cyl(0.03, 0.06, 24), "rubber", lb, RZ), mesh(cyl(0.03, 0.05, 24), "rubber", tl, RX), mesh(cyl(0.024, 0.05, 24), "rubber", ub, RZ),
+        mesh(cyl(0.065, 0.012, 32), "darkSteel", [R - 0.1, A - 0.12, s * 0.45]),
+      ]), [0, -0.12, s * 0.06]);
+      under("springs", group([mesh(springGeo(0.058, 0.3, 5, 0.0105), "spring", [R - 0.1, A - 0.114, s * 0.45]), mesh(cyl(0.06, 0.016, 32), "rubber", [R - 0.1, A + 0.194, s * 0.45])]), [0, -0.04, s * 0.24]);
+      const q0 = [R + 0.08, A - 0.12, s * 0.5], q1 = [R + 0.06, A + 0.38, s * 0.48];
+      under("struts", along(group(shockParts(q0, q1)), q0, q1), [0, -0.08, s * 0.14]);
+      under("cv", group(cvParts(R, s, 0.12)), [0, -0.14, 0]);
+    } else {
+      const sp = [R + 0.1, A + 0.004, s * 0.49];
+      under("springs", group([
+        mesh(springGeo(0.058, 0.25, 4.5, 0.0105), "spring", sp),
+        mesh(cyl(0.06, 0.014, 32), "rubber", [sp[0], sp[1] + 0.257, sp[2]]),
+      ]), [0, -0.04, s * 0.24]);
+      const q0 = [R - 0.09, A - 0.015, s * 0.575], q1 = [R - 0.12, A + 0.42, s * 0.53];
+      under("struts", along(group(shockParts(q0, q1)), q0, q1), [0, -0.08, s * 0.14]);
     }
   });
   if (rearDriven) {
-    under("rdiff", group([mesh(new THREE.SphereGeometry(0.11, 24, 16), "iron", [R, A + 0.02, 0]), mesh(cyl(0.08, 0.05, 24), "darkSteel", [R - 0.09, A + 0.02, 0], RZ)]), [0, -0.2, 0]);
-    under("dshaft", group([
-      rod([E.x - 0.3, A + 0.02, 0.06], [R + 0.12, A + 0.02, 0.02], 0.032, "steel"),
-      mesh(cyl(0.05, 0.05, 20), "rubber", [(E.x - 0.3 + R) / 2, A + 0.02, 0.04], RZ),
-    ]), [0, -0.12, 0]);
+    under("rdiff", group(diffParts(R, A + 0.02)), [0, -0.2, 0]);
+    under("dshaft", group(driveshaftParts([E.x - 0.3, A + 0.02, 0.06], [R + 0.16, A + 0.02, 0.02])), [0, -0.12, 0]);
+    if (solidAxle) under("rbeam", group(axleHousingParts()), [0, -0.2, 0]);
   } else {
-    under("rbeam", group([
-      rod([R + 0.5, A + 0.04, -0.6], [R, A, -0.62], 0.03, "darkSteel"),
-      rod([R + 0.5, A + 0.04, 0.6], [R, A, 0.62], 0.03, "darkSteel"),
-      rod([R + 0.25, A + 0.02, -0.6], [R + 0.25, A + 0.02, 0.6], 0.04, "darkSteel"),
-    ]), [0, -0.22, 0]);
+    under("rbeam", group(twistBeamParts(R, A)), [0, -0.2, 0]);
   }
 
   if (!electric) {
-    // transmission bolted to the engine's flywheel end
-    const tz = vee ? -1 : 1;
+    // transaxle bolted to the engine's flywheel end: bell housing, ribbed case inboard of the strut, differential on the axle line, oil pan
+    const tz = transSide, gx = E.x - 0.03, gy = E.y - 0.225; // case top stays under the strut's spring perch
+    const pan = [mesh(rbox(0.24, 0.024, 0.11, 0.008), "darkSteel", [gx, gy - 0.142, tz * 0.43]), mesh(cyl(0.012, 0.012, 6), "steel", [gx + 0.09, gy - 0.158, tz * 0.43])];
+    for (let i = 0; i < 6; i++) pan.push(mesh(cyl(0.005, 0.008, 6), "steel", [gx - 0.1 + i * 0.04, gy - 0.155, tz * (0.43 + (i % 2 ? 0.045 : -0.045))]));
     under("trans", group([
-      mesh(cyl(0.18, 0.12, 40, 0.15), "aluminum", [E.x - 0.02, E.y - 0.1, tz * 0.39], RX),
-      mesh(rbox(0.36, 0.3, 0.24, 0.04), "aluminum", [E.x - 0.04, E.y - 0.12, tz * 0.56]),
-      mesh(rbox(0.28, 0.03, 0.18, 0.01), "darkSteel", [E.x - 0.04, E.y - 0.285, tz * 0.56]),
+      lathe([[0.2, 0], [0.195, 0.025], [0.17, 0.06], [0.13, 0.085], [0, 0.09]], "cast", [E.x - 0.02, E.y - 0.12, tz * 0.325], [tz * Math.PI / 2, 0, 0], 56),
+      mesh(rbox(0.32, 0.26, 0.13, 0.035), "cast", [gx, gy, tz * 0.43]),
+      ...[0, 1, 2, 3, 4].map((i) => mesh(rbox(0.012, 0.22, 0.145, 0.004), "cast", [gx - 0.12 + i * 0.06, gy, tz * 0.43])),
+      mesh(cyl(0.085, 0.14, 40), "cast", [E.x, A + 0.035, tz * 0.28], RX),
+      mesh(cyl(0.055, 0.03, 32), "cast", [E.x, A + 0.035, tz * 0.36], RX),
+      ...pan,
     ]), [0, -0.24, tz * 0.08]);
 
     // exhaust: front pipe and flex joint, catalytic converter, resonator, muffler, tailpipe, hangers.
@@ -912,9 +1229,13 @@ export function buildCar(options) {
     const Mx = E.x + (vee ? 0.37 : -0.37);
     const catFront = vee ? E.x - 0.45 : Mx - 0.18, catLen = 0.34, catBack = catFront - catLen;
     const p1 = vee ? [Mx + 0.06, A - 0.12, 0.12] : [Mx - 0.08, floorY - 0.02, 0.16];
+    // a bolted pipe joint along x: flange pair and two bolts
+    const flange = (p) => [mesh(cyl(0.048, 0.014, 32), "darkSteel", p, RZ), ...[-1, 1].map((d) => mesh(cyl(0.0065, 0.034, 8), "steel", [p[0], p[1] + d * 0.038, p[2]], RZ))];
     under("flex", group([
-      mesh(tube([[Mx, E.y - 0.1, 0.05], p1, [catFront + 0.04, py, 0.28]], 0.03, false, 40), "exhaust"),
-      mesh(cyl(0.037, 0.12, 20), "darkSteel", [(p1[0] + catFront) / 2, (p1[1] + py) / 2, 0.22], RZ),
+      mesh(tube([[Mx, E.y - 0.1, 0.05], p1, [catFront + 0.04, py, 0.28]], 0.03, false, 48), "exhaust"),
+      mesh(cyl(0.037, 0.12, 24), "darkSteel", [(p1[0] + catFront) / 2, (p1[1] + py) / 2, 0.22], RZ),
+      ...[-0.05, -0.025, 0, 0.025, 0.05].map((d) => mesh(new THREE.TorusGeometry(0.037, 0.003, 6, 24), "steel", [(p1[0] + catFront) / 2 + d, (p1[1] + py) / 2, 0.22], [0, Math.PI / 2, 0])),
+      ...flange([catFront + 0.04, py, 0.28]),
     ]), [0, -0.12, 0]);
     under("exhaust", group([
       mesh(cyl(0.068, catLen - 0.1, 32), "steel", [catFront - catLen / 2, py, 0.28], RZ),
@@ -922,10 +1243,14 @@ export function buildCar(options) {
       mesh(cyl(0.03, 0.05, 24, 0.068), "steel", [catBack + 0.025, py, 0.28], [0, 0, Math.PI / 2]),
     ]), [0, -0.16, 0]);
     const resC = (catBack + R + 0.45) / 2, mufX = R - 0.38, mufY = py + 0.03;
-    under("resonator", mesh(cyl(0.06, 0.3, 32), "steel", [resC, py, 0.28], RZ), [0, -0.16, 0]);
+    under("resonator", group([
+      lathe([[0.03, -0.17], [0.036, -0.158], [0.058, -0.132], [0.063, -0.11], [0.063, 0.11], [0.058, 0.132], [0.036, 0.158], [0.03, 0.17]], "steel", [resC, py, 0.28], RZ, 48),
+      ...[-0.06, 0.06].map((d) => mesh(new THREE.TorusGeometry(0.063, 0.0025, 6, 40), "steel", [resC + d, py, 0.28], [0, Math.PI / 2, 0])),
+    ]), [0, -0.16, 0]);
     under("xpipe", group([
-      mesh(tube([[catBack, py, 0.28], [resC + 0.15, py, 0.28]], 0.03, false, 8), "exhaust"),
-      mesh(tube([[resC - 0.15, py, 0.28], [R + 0.35, py, 0.28], [mufX + 0.12, mufY, 0.08]], 0.03, false, 40), "exhaust"),
+      mesh(tube([[catBack, py, 0.28], [resC + 0.17, py, 0.28]], 0.03, false, 12), "exhaust"),
+      mesh(tube([[resC - 0.17, py, 0.28], [R + 0.35, py, 0.28], [mufX + 0.12, mufY, 0.08]], 0.03, false, 56), "exhaust"),
+      ...flange([catBack, py, 0.28]), ...flange([resC - 0.2, py, 0.28]),
     ]), [0, -0.1, 0]);
     const muffler = mesh(cyl(0.11, 0.46, 40), "steel", [mufX, mufY, 0.2], RX);
     muffler.scale.set(1, 1, 0.62);
@@ -934,22 +1259,39 @@ export function buildCar(options) {
       mesh(tube([[mufX - 0.05, mufY, 0.42], [mufX - 0.18, S.exhaust[1] - 0.02, S.exhaust[2]], [S.exhaust[0] + 0.1, S.exhaust[1], S.exhaust[2]]], 0.028, false, 30), "exhaust"),
       mesh(cyl(0.038, 0.14, 24), "chrome", S.exhaust, RZ),
     ]), [-0.16, 0, 0]);
-    under("hangers", group([[catBack - 0.08, 0.28], [resC - 0.22, 0.28], [R + 0.3, 0.28], [mufX, 0.05]].map(([x, z]) =>
-      mesh(cyl(0.012, 0.08, 12), "rubber", [x, py + 0.06, z]))), [0, 0.12, 0]);
+    // rubber isolators on steel hooks: one rod from the pipe, one from the body
+    under("hangers", group([[catBack - 0.08, py, 0.28], [resC - 0.24, py, 0.28], [R + 0.3, py, 0.28], [mufX, mufY + 0.06, 0.05]].flatMap(([x, y, z]) => [
+      mesh(new THREE.TorusGeometry(0.022, 0.008, 10, 28), "rubber", [x, y + 0.075, z]),
+      rod([x, y + 0.025, z], [x, y + 0.06, z], 0.0045, "steel"),
+      rod([x, y + 0.09, z], [x, y + 0.14, z], 0.0045, "steel"),
+    ])), [0, 0.12, 0]);
 
     // fuel: tank under the rear seat with the pump on top, lines forward to the engine, filler neck to the fuel door
     const tx = -W * 0.5 - 0.02, ty = floorY - 0.05, tz2 = -0.28;
+    // molded plastic tank with ribs underneath, held up by two steel straps
+    const tankShape = roundedRect(new THREE.Shape(), tx - 0.3, tz2 - 0.28, tx + 0.3, tz2 + 0.28, 0.09);
+    const tankGeo = new THREE.ExtrudeGeometry(tankShape, { depth: 0.12, bevelEnabled: true, bevelThickness: 0.022, bevelSize: 0.02, bevelSegments: 4, curveSegments: 12 });
+    tankGeo.rotateX(Math.PI / 2);
+    tankGeo.translate(0, ty + 0.06, 0);
+    const strap = (x) => mesh(tube([[x, ty + 0.07, tz2 - 0.32], [x, ty - 0.06, tz2 - 0.305], [x, ty - 0.084, tz2 - 0.24], [x, ty - 0.086, tz2], [x, ty - 0.084, tz2 + 0.24], [x, ty - 0.06, tz2 + 0.305], [x, ty + 0.07, tz2 + 0.32]], 0.0065, false, 64), "steel");
     under("ftank", group([
-      mesh(rbox(0.6, 0.16, 0.56, 0.05), "plastic", [tx, ty, tz2]),
-      mesh(rbox(0.03, 0.012, 0.6, 0.004), "steel", [tx + 0.18, ty - 0.083, tz2]),
-      mesh(rbox(0.03, 0.012, 0.6, 0.004), "steel", [tx - 0.18, ty - 0.083, tz2]),
+      mesh(tankGeo, "plastic"),
+      ...[-0.16, 0, 0.16].map((d) => mesh(rbox(0.42, 0.01, 0.03, 0.005), "plastic", [tx - 0.02, ty - 0.086, tz2 + d])),
+      strap(tx + 0.18), strap(tx - 0.18),
     ]), [0, -0.32, 0]);
+    const pumpAt = [tx + 0.1, ty + 0.084, tz2 + 0.08];
     under("fpump", group([
-      mesh(cyl(0.075, 0.02, 32), "darkSteel", [tx + 0.1, ty + 0.09, tz2 + 0.08]),
-      mesh(cyl(0.035, 0.05, 20), "plastic", [tx + 0.1, ty + 0.12, tz2 + 0.08]),
-      mesh(cyl(0.012, 0.03, 10), "steel", [tx + 0.13, ty + 0.15, tz2 + 0.08]),
+      lathe([[0.03, 0], [0.078, 0], [0.078, 0.012], [0.07, 0.016], [0.03, 0.016]], "darkSteel", pumpAt, null, 48),
+      mesh(cyl(0.062, 0.03, 8), "plastic", [pumpAt[0], pumpAt[1] + 0.03, pumpAt[2]]),
+      mesh(rbox(0.035, 0.022, 0.025, 0.005), "plastic", [pumpAt[0] - 0.03, pumpAt[1] + 0.055, pumpAt[2]]),
+      ...[0.025, -0.01].map((d) => mesh(cyl(0.008, 0.035, 12), "steel", [pumpAt[0] + 0.03, pumpAt[1] + 0.06, pumpAt[2] + d])),
     ]), [0.32, -0.14, 0]);
-    under("ffilter", mesh(cyl(0.028, 0.13, 20), "darkSteel", [tx + 0.62, py + 0.02, -0.42], RZ), [0, -0.12, -0.04]);
+    const filterAt = [tx + 0.62, py + 0.02, -0.42];
+    under("ffilter", group([
+      lathe([[0.012, -0.08], [0.02, -0.07], [0.029, -0.055], [0.03, 0.05], [0.022, 0.065], [0.012, 0.075]], "darkSteel", filterAt, RZ, 32),
+      ...[-0.09, 0.085].map((d) => mesh(cyl(0.0075, 0.03, 12), "steel", [filterAt[0] + d, filterAt[1], filterAt[2]], RZ)),
+      slab([filterAt[0], filterAt[1] + 0.03, filterAt[2]], [filterAt[0], filterAt[1] + 0.07, filterAt[2]], 0.04, 0.03, 0.006, [1, 0, 0], "steel"),
+    ]), [0, -0.12, -0.04]);
     // the line climbs to the fuel rail but stays under the hood line
     const railX = E.x + (vee ? 0 : 0.19), rail = [railX, Math.min(E.y + (vee ? 0.33 : 0.23), topL(railX) - 0.1), -0.3];
     under("flines", group([
@@ -957,7 +1299,11 @@ export function buildCar(options) {
       mesh(tube([[tx + 0.69, py + 0.02, -0.42], [W - 0.5, py + 0.02, -0.42], [E.x - 0.32, E.y - 0.12, -0.42], [E.x - 0.1, Math.min(E.y + 0.3, topL(E.x - 0.1) - 0.12), -0.42], rail], 0.006, false, 80), "steel"),
       mesh(tube([[tx + 0.16, ty + 0.1, tz2 + 0.08], [tx + 0.3, py + 0.03, -0.55], [tx + 0.39, py, -0.62]], 0.005, false, 24), "hose"),
     ]), [0, -0.08, 0]);
-    under("evap", mesh(rbox(0.22, 0.1, 0.12, 0.02), "plastic", [tx + 0.5, py, -0.62]), [0, -0.14, -0.05]);
+    under("evap", group([
+      mesh(rbox(0.22, 0.1, 0.12, 0.025), "plastic", [tx + 0.5, py, -0.62]),
+      ...[-0.06, 0, 0.06].map((d) => mesh(cyl(0.008, 0.04, 12), "plastic", [tx + 0.62, py + d * 0.5, -0.62 + d], RZ)),
+      ...[-1, 1].map((d) => slab([tx + 0.5 + d * 0.08, py + 0.05, -0.62], [tx + 0.5 + d * 0.08, py + 0.1, -0.62], 0.03, 0.03, 0.006, [1, 0, 0], "plastic")),
+    ]), [0, -0.14, -0.05]);
     // fuel door behind the rear wheel; on a pickup, low on the bed side so the neck stays under the bed floor
     const fdX = S.bed ? R + 0.62 : R - 0.28, fdZ = -(S.sideZ - 0.02);
     const fdY = S.bed ? topL((S.bed.x0 + S.bed.x1) / 2) - 0.47 : topL(fdX) - 0.22;
