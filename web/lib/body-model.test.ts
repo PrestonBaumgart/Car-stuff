@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { Box3, BoxGeometry, Group, Mesh, MeshBasicMaterial, Vector3 } from "three";
 import { addBody, codeBox, fitBody, placeBody } from "./body-model.js";
 import { dimsFor } from "./car-dims.js";
-import { buildCar } from "./car-model.js";
+import { buildCar, setVisibility } from "./car-model.js";
 
 const box = (min: number[], max: number[]) => ({
   min: { x: min[0], y: min[1], z: min[2] },
@@ -136,7 +136,7 @@ describe("addBody with a body file", () => {
     expect(model.parent).toBe(built.group);
     const got = codeBox(built.group, [model]), target = codeBox(built.group, parts);
     expect(got.max.x - got.min.x).toBeCloseTo(target.max.x - target.min.x, 5);
-    type Look = { color: { getHex(): number }; transparent: boolean; userData: { base?: object; paint?: boolean } };
+    type Look = { color: { getHex(): number }; transparent: boolean; opacity: number; depthWrite: boolean; userData: { base?: object; paint?: boolean } };
     const materials = new Set<Look>();
     model.traverse((o: { isMesh?: boolean; material: Look }) => {
       if (o.isMesh) materials.add(o.material);
@@ -147,7 +147,28 @@ describe("addBody with a body file", () => {
       expect(m.userData.base).toBeDefined();
       expect(m.userData.paint).toBeFalsy();
     }
-    expect([...materials].some((m) => m.color.getHex() === 0xf2f3f5)).toBe(true);
+    // white and see-through, never writing depth, so the parts inside read through the shell
+    const paint = [...materials].find((m) => m.color.getHex() === 0xffffff)!;
+    expect(paint.opacity).toBeGreaterThanOrEqual(0.35);
+    expect(paint.opacity).toBeLessThanOrEqual(0.45);
+    const glass = [...materials].find((m) => m !== paint)!;
+    expect(glass.opacity).toBeLessThan(paint.opacity);
+    for (const m of materials) expect(m.depthWrite).toBe(false);
+  });
+
+  it("keeps fading with the shell and still never writes depth", async () => {
+    const built = buildCar({ style: "sedan" });
+    const model = await addBody(built.group, built.body.concat(built.panels), tinyBody(), () => true);
+    setVisibility(model, 1, 0);
+    model.traverse((o: { isMesh?: boolean; material: { opacity: number; depthWrite: boolean; userData: { base: { opacity: number } } } }) => {
+      if (o.isMesh) { expect(o.material.opacity).toBeCloseTo(o.material.userData.base.opacity, 6); expect(o.material.depthWrite).toBe(false); }
+    });
+    setVisibility(model, 0.5, 0);
+    model.traverse((o: { isMesh?: boolean; material: { opacity: number; userData: { base: { opacity: number } } } }) => {
+      if (o.isMesh) expect(o.material.opacity).toBeCloseTo(o.material.userData.base.opacity * 0.5, 6);
+    });
+    setVisibility(model, 0, 0);
+    expect(model.visible).toBe(false);
   });
 
   it("drops the body when the car was rebuilt while it loaded", async () => {

@@ -1,19 +1,21 @@
-/** One real car body model. `file` is `${key}.glb`; `years` is [first, last], inclusive. */
+/** One generic body type. `file` is `generic/${key}.glb`, relative to the parts folder's cars/. Credits are filled in from the model's source page. */
 export interface CarBody {
   key: string;
   file: string;
-  make: string;
-  models: string[];
-  years: [number, number];
   title: string;
   author: string;
   url: string;
 }
 
-/** Every car body we have a model for, with its credits. */
+/** The line the UI shows next to a generic body. */
+export const BODY_NOTE: string;
+
+/** Every generic body type. */
 export const CAR_BODIES: CarBody[];
 
-/** The body model for a decoded vehicle, or null. vehicle: { year, make, model, ... } (strings or numbers from NHTSA vPIC). */
+/** The generic body that best matches a decoded vehicle: by NHTSA body class, refined by the car's size. Never null; "sedan" when unknown. */
 export function bodyFor(vehicle: {
-  year?: string | number | null; make?: string | null; model?: string | null; [field: string]: unknown;
-} | null | undefined): CarBody | null;
+  bodyClass?: string | null; body?: string | null; make?: string | null; model?: string | null;
+  year?: string | number | null; doors?: string | number | null; wheelbase?: string | number | null;
+  [field: string]: unknown;
+} | null | undefined): CarBody;

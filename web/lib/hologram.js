@@ -9,7 +9,7 @@ import { DEFAULTS, RATES, TIER_NAMES, quote, quoteLine } from "./quote.js";
 import { dimsFor } from "./car-dims.js";
 import { applyPartModels } from "./part-models.js";
 import { addBody, showCode } from "./body-model.js";
-import { bodyFor } from "./car-bodies.js";
+import { bodyFor, BODY_NOTE } from "./car-bodies.js";
 import { buildCar, buildEngine, buildGarage, buildLift, repaint, setVisibility, styleFor } from "./car-model.js";
 
 const CSS = `
@@ -26,6 +26,7 @@ const CSS = `
 .holo-corner.tr { top: 0; right: 0; border-left: 0; border-bottom: 0; }
 .holo-corner.bl { bottom: 0; left: 0; border-right: 0; border-top: 0; }
 .holo-corner.br { bottom: 0; right: 0; border-left: 0; border-top: 0; }
+.holo-note { position: absolute; left: 14px; bottom: 32px; pointer-events: none; z-index: 2; color: var(--steel); letter-spacing: .1em; font-size: 11px; }
 .holo-hint { position: absolute; left: 14px; bottom: 12px; right: 14px; pointer-events: none; color: var(--holo); z-index: 2; letter-spacing: .14em; font-size: 12px; }
 .holo[data-mode="bay"] .holo-hint, .holo[data-mode="inside"] .holo-hint, .holo[data-mode="under"] .holo-hint, .holo[data-mode="body"] .holo-hint, .holo.is-demo .holo-hint { display: none; }
 .holo-tip { position: absolute; pointer-events: none; z-index: 7; padding: 4px 8px; background: rgba(3,6,12,.9); border: 1px solid var(--holo); color: var(--holo); font-size: 12px; letter-spacing: .1em; white-space: nowrap; transform: translate(12px, -50%); }
@@ -182,7 +183,7 @@ function isElectric(v) { return /^electric$/i.test(String(v.fuel || "").trim());
  * options.demo: play a looping guided tour instead of taking input.
  * options.onSelect(id): called when the viewer opens a part.
  * options.paint: body color, a hex number or "#rrggbb" (change it later with setPaint).
- * options.partsUrl: folder holding the part .glb files (ending in "/"), and real car bodies under "cars/";
+ * options.partsUrl: folder holding the part .glb files (ending in "/"), and generic car bodies under "cars/generic/";
  *   without it every part and body stays code-built.
  * options.health: { partId: { status: "good" | "watch" | "replace" | "unknown", note } } from the service log
  *   (change it later with setHealth). Parts are tinted by it while the viewer has health colors on.
@@ -206,6 +207,7 @@ export function createHologram(root, options = {}) {
       '<div class="holo-menu" id="' + uid + '-views" role="menu" aria-label="3D views" hidden></div></div>' +
       '<button type="button" class="holo-quotebtn" aria-pressed="false" hidden>Quote</button></div>' +
     '<div class="holo-hint"></div>' +
+    '<div class="holo-note" hidden>' + BODY_NOTE + '</div>' +
     '<div class="holo-ctrls"><button type="button" class="holo-cartoggle" aria-pressed="true" hidden>Car: shown</button>' +
     '<button type="button" class="holo-healthtoggle" aria-pressed="true" hidden>Health: on</button>' +
     '<div class="holo-legend" hidden>' + ["good", "watch", "replace", "unknown"].map((h) => '<span class="h-' + h + '"><i class="hdot"></i>' + HEALTH_LABEL[h] + "</span>").join("") + "</div></div>" +
@@ -215,7 +217,7 @@ export function createHologram(root, options = {}) {
     '<span class="holo-corner tl"></span><span class="holo-corner tr"></span><span class="holo-corner bl"></span><span class="holo-corner br"></span>' +
     (demo ? '<div class="holo-cursor" aria-hidden="true">' + CURSOR + '</div><div class="holo-caption" aria-hidden="true"><b></b><strong></strong><span></span></div><button type="button" class="holo-pause"></button>' : "");
   const $ = (s) => root.querySelector(s);
-  const canvas = $(".holo-canvas"), viewBtn = $(".holo-viewbtn"), menu = $(".holo-menu"), quoteBtn = $(".holo-quotebtn"), hint = $(".holo-hint");
+  const canvas = $(".holo-canvas"), viewBtn = $(".holo-viewbtn"), menu = $(".holo-menu"), quoteBtn = $(".holo-quotebtn"), hint = $(".holo-hint"), bodyNote = $(".holo-note");
   const strip = $(".holo-strip"), panel = $(".holo-panel"), tip = $(".holo-tip"), carToggle = $(".holo-cartoggle");
   const healthToggle = $(".holo-healthtoggle"), legend = $(".holo-legend");
   canvas.setAttribute("aria-label", demo
@@ -251,7 +253,7 @@ export function createHologram(root, options = {}) {
   // The car (body panels, underside parts), its engine and internals, and the lift. Rebuilt when the vehicle changes.
   let carView = [0.7, 1], car = null, lift = null, bodyParts = [], panels = [], chassis = [], hood = null, bayTarget = new THREE.Vector3();
   let engine = null, bayPick = [], bayDecor = [], insidePick = [], partMeshes = {};
-  // the real body model over the code-built one, once it has loaded (null until then, or if there isn't one)
+  // the generic body model over the code-built one, once it has loaded (null until then, or if there isn't one)
   let realBody = null, destroyed = false;
   let BAY = [], INSIDE = [], UNDER = [], BODY = [];
   function buildAll() {
@@ -281,12 +283,13 @@ export function createHologram(root, options = {}) {
     if (options.partsUrl) applyPartModels(partMeshes, options.partsUrl);
 
     realBody = null;
+    bodyNote.hidden = true;
     const real = options.partsUrl ? bodyFor(vehicle) : null;
     if (real) {
       const forCar = car;
       const current = () => !destroyed && car === forCar; // a vehicle change rebuilds the car while this loads
       addBody(car, bodyParts.concat(panels), options.partsUrl + "cars/" + real.file, current).then(function (model) {
-        if (model && current()) realBody = model;
+        if (model && current()) { realBody = model; bodyNote.hidden = false; }
       });
     }
   }

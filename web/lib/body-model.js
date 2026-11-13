@@ -1,4 +1,4 @@
-// A real car body (CC BY, credits in public/parts/ATTRIBUTION.md) fitted over the code-built one: same length,
+// A generic car body (CC BY, credits in public/parts/ATTRIBUTION.md) fitted over the code-built one: same length,
 // same spot, standing on the same ground. The code-built panels stay behind it as invisible pick targets.
 // If the file fails to load, the code-built body simply stays.
 import * as THREE from "three";
@@ -9,13 +9,18 @@ import { material } from "./car-model.js";
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 
-// The files ship flat white materials named for what they are; each name gets the viewer's look for it.
-const LOOKS = { glass: "glass", rubber: "rubber", trim: "trim", lamp: "headlight" };
-function look(name) {
-  if (LOOKS[name]) return material(LOOKS[name]);
-  // paint (and anything unnamed) stays white on every car, so it isn't marked as paint and repaint() skips it
-  const m = material("paint", { color: 0xf2f3f5 });
+// The files ship flat materials named for what they are; each name gets a see-through white look so the
+// code-built parts inside read through the shell. Paint stays white on every car, so it isn't marked as paint
+// and repaint() skips it. depthWrite stays off (userData.noDepth) so the shell never hides what is behind it.
+export const BODY_PAINT = { color: 0xffffff, opacity: 0.4, metalness: 0, roughness: 0.6, clearcoat: 0 };
+export const BODY_GLASS = { color: 0xdfe8f0, opacity: 0.22, metalness: 0, roughness: 0.1 };
+const LOOKS = { glass: ["glass", BODY_GLASS], rubber: ["rubber", { opacity: 0.5 }], trim: ["trim", { opacity: 0.5 }], lamp: ["headlight", { opacity: 0.5 }] };
+export function look(name) {
+  const [key, extra] = LOOKS[name] || ["paint", BODY_PAINT];
+  const m = material(key, extra);
   delete m.userData.paint;
+  m.userData.noDepth = true;
+  m.depthWrite = false;
   return m;
 }
 

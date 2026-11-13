@@ -119,7 +119,7 @@ export function setVisibility(obj, vis, glow, glowColor) {
       const b = mt.userData.base;
       if (!b) return;
       mt.opacity = b.opacity * vis;
-      mt.depthWrite = vis > 0.6;
+      mt.depthWrite = vis > 0.6 && !mt.userData.noDepth; // a see-through shell never writes depth
       if (m.isMesh) m.castShadow = vis > 0.5;
       if (!mt.emissive) return;
       if (glow > 0) { mt.emissive.setHex(glowColor); mt.emissiveIntensity = glow; }

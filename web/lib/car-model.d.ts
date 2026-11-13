@@ -19,6 +19,9 @@ export function buildCar(options: {
   cylinders?: string | number | null; drive?: string | null; electric?: boolean;
 }): { group: Object3DLike; body: Object3DLike[]; panels: Object3DLike[]; chassis: Object3DLike[] };
 
+/** Fade (vis 0-1) and highlight everything inside obj. */
+export function setVisibility(obj: Object3DLike, vis: number, glow: number, glowColor?: number): void;
+
 /** three.js objects (three has no TypeScript types installed here). */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Object3DLike = any;
