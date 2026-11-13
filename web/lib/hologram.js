@@ -576,7 +576,9 @@ export function createHologram(root, options = {}) {
     else if (level === "body") dir.y = Math.min(0.6, Math.max(dir.y, 0.15));
     else dir.y = Math.max(dir.y, 0.4);
     dir.normalize();
-    const d = Math.min(3.2, Math.max(1.5, r * 6)) * (narrow() ? 1.3 : 1);
+    // engine parts are small and detailed: the camera may come closer to them than to the rest of the car
+    const nearest = level === "bay" || level === "inside" ? 0.8 : 1.5;
+    const d = Math.min(3.2, Math.max(nearest, r * 6)) * (narrow() ? 1.3 : 1);
     return { t: c, p: c.clone().addScaledVector(dir, d) };
   }
   // Looking up from under the lift needs the camera below its target; everywhere else it stays above.
