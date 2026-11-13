@@ -75,6 +75,11 @@ const CSS = `
 .holo-panel .q-acts { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .holo-panel .q-empty { font-size: 14px; color: #c3cee6; }
 .holo-ctrls { position: absolute; right: 14px; top: 76px; z-index: 4; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; pointer-events: none; }
+.holo-zoom { position: absolute; left: 14px; top: 84px; z-index: 4; display: flex; flex-direction: column; gap: 6px; }
+.holo-zoom button { width: 40px; height: 40px; display: grid; place-items: center; font: 400 22px/1 var(--f-hud, ui-monospace, monospace); background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); cursor: pointer; }
+.holo-zoom button:hover, .holo-zoom button:focus-visible { border-color: var(--holo); }
+.holo-zoom button:disabled { color: var(--steel); cursor: default; border-color: var(--line); }
+.holo.is-narrow .holo-zoom button { width: 44px; height: 44px; }
 .holo-ctrls > * { pointer-events: auto; }
 .holo-healthtoggle { font-family: var(--f-hud, ui-monospace, monospace); text-transform: uppercase; font-size: 12px; letter-spacing: .12em; background: rgba(3,6,12,.8); border: 1px solid var(--line); color: var(--holo); padding: 5px 9px; cursor: pointer; }
 .holo-healthtoggle:hover { border-color: var(--holo); }
@@ -143,6 +148,8 @@ const CSS = `
 const CURSOR = '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 2 L3 19 L8 14.5 L11.5 22 L14.5 20.6 L11 13.3 L17.5 13.3 Z" fill="#e8eefb" stroke="#070b14" stroke-width="1.5" stroke-linejoin="round"/></svg>';
 
 const AMBER = 0xffb02e;
+// how close and how far the camera may get to what it is looking at, and how much one zoom button press moves it
+const ZOOM_MIN = 0.35, ZOOM_MAX = 14, ZOOM_STEP = 1.3;
 // Body panels that light up their own spot on the real body when hovered or picked: which of its looks they light
 // (paint, glass, lamp lenses, black trim) and, where the code draws the part smaller than real bodies have it, how much
 // room to give it ([x, y, z] metres). Small add-ons (mirrors, handles, wipers…) keep showing their code-built part.
@@ -222,6 +229,7 @@ export function createHologram(root, options = {}) {
     '<div class="holo-ctrls"><button type="button" class="holo-cartoggle" aria-pressed="true" hidden>Car: shown</button>' +
     '<button type="button" class="holo-healthtoggle" aria-pressed="true" hidden>Health: on</button>' +
     '<div class="holo-legend" hidden>' + ["good", "watch", "replace", "unknown"].map((h) => '<span class="h-' + h + '"><i class="hdot"></i>' + HEALTH_LABEL[h] + "</span>").join("") + "</div></div>" +
+    (demo ? "" : '<div class="holo-zoom" role="group" aria-label="Zoom"><button type="button" data-zoom="in" aria-label="Zoom in">+</button><button type="button" data-zoom="out" aria-label="Zoom out">\u2212</button></div>') +
     '<div class="holo-strip" role="group" aria-label="Engine bay parts" hidden></div>' +
     '<aside class="holo-panel" aria-label="Part details" hidden></aside>' +
     '<div class="holo-tip" hidden></div>' +
@@ -251,7 +259,10 @@ export function createHologram(root, options = {}) {
   const controls = new OrbitControls(camera, canvas);
   controls.target.copy(CAR_T);
   controls.enableDamping = true; controls.dampingFactor = 0.08;
-  controls.enablePan = false; controls.enableZoom = false;
+  // zoom: the + and - buttons, a pinch on a touch screen, or a trackpad pinch (ctrl + wheel); a plain wheel still scrolls the page
+  controls.enablePan = false; controls.enableZoom = !demo;
+  controls.minDistance = ZOOM_MIN; controls.maxDistance = ZOOM_MAX;
+  root.addEventListener("wheel", (e) => { if (!e.ctrlKey && e.target === canvas) e.stopPropagation(); }, { capture: true });
   controls.enableRotate = !demo;
   controls.minPolarAngle = 0.35; controls.maxPolarAngle = 1.45;
   controls.autoRotate = !reduce; controls.autoRotateSpeed = 0.7;
@@ -349,6 +360,7 @@ export function createHologram(root, options = {}) {
     if (b.dataset.go) setMode(b.dataset.go); else openPart(b.dataset.id, true);
   });
   carToggle.addEventListener("click", function () { showCar = !showCar; renderUI(); });
+  root.querySelectorAll("[data-zoom]").forEach((b) => b.addEventListener("click", () => zoomBy(b.dataset.zoom === "in" ? 1 / ZOOM_STEP : ZOOM_STEP)));
   healthToggle.addEventListener("click", function () {
     healthOn = !healthOn;
     try { localStorage.setItem(HEALTH_PREF, healthOn ? "on" : "off"); } catch (e) { /* storage blocked: still toggles for this visit */ }
@@ -606,10 +618,16 @@ export function createHologram(root, options = {}) {
   }
   const clock = new THREE.Clock();
   let flight = null;
-  function fly(g, instant) {
+  function fly(g, instant, dur) {
     if (reduce || instant) { flight = null; camera.position.copy(g.p); controls.target.copy(g.t); return; }
-    flight = { p0: camera.position.clone(), t0: controls.target.clone(), p1: g.p, t1: g.t, start: clock.getElapsedTime(), dur: 1.25 };
+    flight = { p0: camera.position.clone(), t0: controls.target.clone(), p1: g.p, t1: g.t, start: clock.getElapsedTime(), dur: dur || 1.25 };
     controls.enabled = false;
+  }
+  // move the camera toward (f < 1) or away from (f > 1) what it looks at, from where it is headed if it is still flying
+  function zoomBy(f) {
+    const p = flight ? flight.p1 : camera.position, t = flight ? flight.t1 : controls.target;
+    const dir = p.clone().sub(t), d = dir.length(), nd = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, d * f));
+    if (Math.abs(nd - d) > 1e-3) fly({ p: t.clone().addScaledVector(dir.normalize(), nd), t: t.clone() }, false, 0.35);
   }
   const ease = (k) => k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2;
 
@@ -739,7 +757,8 @@ export function createHologram(root, options = {}) {
     };
     // a real body stands in for the code-built shell, which stays only as invisible pick targets
     bodyParts.forEach((o) => setVisibility(o, realBody ? 0 : shell, 0));
-    if (realBody) setVisibility(realBody, shell, 0);
+    // the real body is solid when shown in full; it falls off faster than the shell so the ghost in the other views stays faint
+    if (realBody) setVisibility(realBody, shell * (0.4 + 0.6 * shell), 0);
     setVisibility(hood, 1, 0); // invisible pick target
     const lit = [];
     panels.forEach(function (o) {

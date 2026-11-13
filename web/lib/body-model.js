@@ -9,18 +9,18 @@ import { material } from "./car-model.js";
 const loader = new GLTFLoader();
 loader.setMeshoptDecoder(MeshoptDecoder);
 
-// The files ship flat materials named for what they are; each name gets a see-through white look so the
-// code-built parts inside read through the shell. Paint stays white on every car, so it isn't marked as paint
-// and repaint() skips it. depthWrite stays off (userData.noDepth) so the shell never hides what is behind it.
-export const BODY_PAINT = { color: 0xffffff, opacity: 0.4, metalness: 0, roughness: 0.6, clearcoat: 0 };
-export const BODY_GLASS = { color: 0xdfe8f0, opacity: 0.22, metalness: 0, roughness: 0.1 };
-const LOOKS = { glass: ["glass", BODY_GLASS], rubber: ["rubber", { opacity: 0.5 }], trim: ["trim", { opacity: 0.5 }], lamp: ["headlight", { opacity: 0.5 }] };
+// The files ship flat materials named for what they are; each name gets a look. The body is solid gloss white with
+// solid trim and lamps, so it reads as a real car; it still fades with the shell in the other views. Paint stays white
+// on every car, so it isn't marked as paint and repaint() skips it. Only the tinted glass is see-through, and it never
+// writes depth (userData.noDepth), so the cabin shows through it.
+export const BODY_PAINT = { color: 0xf3f5f7, opacity: 1, metalness: 0.1, roughness: 0.35, clearcoat: 0.6, clearcoatRoughness: 0.15 };
+export const BODY_GLASS = { color: 0x111a24, opacity: 0.72, metalness: 0.3, roughness: 0.06 };
+const LOOKS = { glass: ["glass", BODY_GLASS], rubber: ["rubber", { opacity: 1 }], trim: ["trim", { opacity: 1 }], lamp: ["headlight", { opacity: 0.95 }] };
 export function look(name) {
   const [key, extra] = LOOKS[name] || ["paint", BODY_PAINT];
   const m = material(key, extra);
   delete m.userData.paint;
-  m.userData.noDepth = true;
-  m.depthWrite = false;
+  if (key === "glass") { m.userData.noDepth = true; m.depthWrite = false; }
   return m;
 }
 
@@ -64,7 +64,7 @@ if (hiAmount > 0.0) {
     if (d >= 0.0 && depth >= hiD[i].x && depth <= hiD[i].y && dot(nrm, hiN[i]) > 0.2) { inside = 1.0; edge = max(edge, 1.0 - smoothstep(0.0, 0.014, d)); }
   }
   gl_FragColor.rgb = mix(gl_FragColor.rgb, hiColor, inside * hiAmount * (0.6 + 0.4 * edge));
-  gl_FragColor.a = mix(gl_FragColor.a, 0.92, inside * hiAmount);
+  gl_FragColor.a = mix(gl_FragColor.a, max(gl_FragColor.a, 0.92), inside * hiAmount);
 }`);
   };
   m.customProgramCacheKey = () => "body-highlight";

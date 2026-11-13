@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 // three ships without TypeScript types in this project
 // @ts-expect-error untyped module
 import { Box3, BoxGeometry, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from "three";
-import { HI_MAX, addBody, applyLooks, codeBox, fitBody, fitRegionToBody, highlightBody, panelRegion, placeBody, regionInWorld } from "./body-model.js";
+import { BODY_PAINT, HI_MAX, addBody, applyLooks, codeBox, fitBody, fitRegionToBody, highlightBody, panelRegion, placeBody, regionInWorld } from "./body-model.js";
 import { dimsFor } from "./car-dims.js";
 import { buildCar, setVisibility } from "./car-model.js";
 
@@ -147,25 +147,26 @@ describe("addBody with a body file", () => {
       expect(m.userData.base).toBeDefined();
       expect(m.userData.paint).toBeFalsy();
     }
-    // white and see-through, never writing depth, so the parts inside read through the shell
-    const paint = [...materials].find((m) => m.color.getHex() === 0xffffff)!;
-    expect(paint.opacity).toBeGreaterThanOrEqual(0.35);
-    expect(paint.opacity).toBeLessThanOrEqual(0.45);
+    // solid white paint that writes depth like a real body; see-through tinted glass that never does
+    const paint = [...materials].find((m) => m.color.getHex() === BODY_PAINT.color)!;
+    expect(paint.opacity).toBe(1);
+    expect(paint.depthWrite).toBe(true);
     const glass = [...materials].find((m) => m !== paint)!;
     expect(glass.opacity).toBeLessThan(paint.opacity);
-    for (const m of materials) expect(m.depthWrite).toBe(false);
+    expect(glass.depthWrite).toBe(false);
   });
 
-  it("keeps fading with the shell and still never writes depth", async () => {
+  it("is solid in full view and fades with the shell, glass never writing depth", async () => {
     const built = buildCar({ style: "sedan" });
     const model = await addBody(built.group, built.body.concat(built.panels), tinyBody(), () => true);
+    type M = { isMesh?: boolean; material: { opacity: number; depthWrite: boolean; userData: { base: { opacity: number }; noDepth?: boolean } } };
     setVisibility(model, 1, 0);
-    model.traverse((o: { isMesh?: boolean; material: { opacity: number; depthWrite: boolean; userData: { base: { opacity: number } } } }) => {
-      if (o.isMesh) { expect(o.material.opacity).toBeCloseTo(o.material.userData.base.opacity, 6); expect(o.material.depthWrite).toBe(false); }
+    model.traverse((o: M) => {
+      if (o.isMesh) { expect(o.material.opacity).toBeCloseTo(o.material.userData.base.opacity, 6); expect(o.material.depthWrite).toBe(!o.material.userData.noDepth); }
     });
     setVisibility(model, 0.5, 0);
-    model.traverse((o: { isMesh?: boolean; material: { opacity: number; userData: { base: { opacity: number } } } }) => {
-      if (o.isMesh) expect(o.material.opacity).toBeCloseTo(o.material.userData.base.opacity * 0.5, 6);
+    model.traverse((o: M) => {
+      if (o.isMesh) { expect(o.material.opacity).toBeCloseTo(o.material.userData.base.opacity * 0.5, 6); expect(o.material.depthWrite).toBe(false); }
     });
     setVisibility(model, 0, 0);
     expect(model.visible).toBe(false);
