@@ -67,7 +67,7 @@ export function CarHologram({ car }: { car: Car }) {
       <div style={{ padding: "20px 20px 0" }}>
         <h2>Parts bay</h2>
         <p className="sub">
-          Use the tabs to open the engine bay, go inside the engine, put the car on the lift to see underneath, or check body panels and lights. Tap any part to compare prices and order it. Health colors show what was just serviced (green), what&apos;s getting old (orange), what&apos;s overdue (red) and what has no record (gray); turn them off with the Health button. Prices are typical ranges; the buttons open live listings for your car.
+          Use the View menu to open the engine bay, go inside the engine, put the car on the lift to see underneath, or check body panels and lights. Tap any part to compare prices and order it, or add it to a repair quote: parts plus book labor hours at your shop&apos;s rate. Health colors show what was just serviced (green), what&apos;s getting old (orange), what&apos;s overdue (red) and what has no record (gray); turn them off with the Health button. Prices are typical ranges; the buttons open live listings for your car.
         </p>
       </div>
       <div ref={ref} className="holo-host" />
